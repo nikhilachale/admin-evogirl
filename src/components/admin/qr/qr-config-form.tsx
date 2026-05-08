@@ -171,8 +171,8 @@ function Field({
 
 function PrintSpecs() {
   return (
-    <div className="mt-4 rounded-[10px] border border-emerald-400/15 bg-emerald-400/[0.07] p-3">
-      <div className="mb-1 text-[10px] font-bold tracking-wider text-emerald-400">
+    <div className="mt-4 rounded-[10px] border border-success/15 bg-success/[0.07] p-3">
+      <div className="mb-1 text-[10px] font-bold tracking-wider text-success">
         PRINT SPECS
       </div>
       <div className="text-[11px] leading-[1.7] text-muted-foreground">

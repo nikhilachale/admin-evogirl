@@ -10,6 +10,7 @@ import {
   type LanguageCode,
   type ScraperAfterAction,
 } from '@/types/settings';
+import { PageHeader } from '@/components/admin/page-header';
 import { SettingsSection } from '@/components/admin/settings/settings-section';
 import { SettingsRow } from '@/components/admin/settings/settings-row';
 import { ConnectionBadge } from '@/components/admin/settings/connection-badge';
@@ -80,16 +81,12 @@ export function SettingsPage() {
 
   return (
     <div className="p-8">
-      <header className="mb-2">
-        <h1 className="text-2xl font-bold uppercase tracking-[0.18em]">
-          Settings
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Configuration for all promise.evogirl.com integrations and behaviour
-        </p>
-      </header>
+      <PageHeader
+        title="Settings"
+        subtitle="Configuration for all promise.evogirl.com integrations and behaviour"
+      />
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* ── Column 1 ─────────────────────────────────────────── */}
         <div className="flex flex-col gap-4">
           <SettingsSection

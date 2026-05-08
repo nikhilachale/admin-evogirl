@@ -8,7 +8,7 @@ const STYLES: Record<VoucherStatus, { label: string; className: string }> = {
   },
   redeemed: {
     label: 'Redeemed',
-    className: 'bg-emerald-500/15 text-emerald-400',
+    className: 'bg-success/15 text-success',
   },
   expired: {
     label: 'Expired',

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { Inbox, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn, formatINR } from '@/lib/utils';
@@ -7,6 +7,7 @@ import { useVouchersStore, type VoucherStatusFilter } from '@/store/vouchers';
 import { MOCK_VOUCHERS } from '@/data/vouchers.mock';
 import { MarketplaceTag } from '@/components/admin/vouchers/marketplace-tag';
 import { VoucherStatusBadge } from '@/components/admin/vouchers/voucher-status-badge';
+import { PageHeader } from '@/components/admin/page-header';
 
 const FILTERS: { key: VoucherStatusFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -79,15 +80,12 @@ export function VouchersPage() {
 
   return (
     <div className="p-8">
-      <header className="mb-2">
-        <h1 className="text-2xl font-bold uppercase tracking-[0.18em]">Vouchers</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          All issued discount codes · Redeemable only on evogirl.com · Synced with
-          Shopify Admin API
-        </p>
-      </header>
+      <PageHeader
+        title="Vouchers"
+        subtitle="All issued discount codes · Redeemable only on evogirl.com · Synced with Shopify Admin API"
+      />
 
-      <div className="mb-5 mt-5">
+      <div className="mb-5">
         <div className="relative max-w-xl">
           <Search
             size={14}
@@ -114,8 +112,8 @@ export function VouchersPage() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <span className="inline-flex items-center gap-2 rounded-md bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold tracking-wide text-emerald-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        <span className="inline-flex items-center gap-2 rounded-md bg-success/10 px-2.5 py-1 text-[11px] font-bold tracking-wide text-success">
+          <span className="h-1.5 w-1.5 rounded-full bg-success" />
           Shopify Synced — 2 min ago
         </span>
         <span className="text-[11px] text-muted-foreground">
@@ -161,7 +159,7 @@ export function VouchersPage() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-card/50">
-        <div className="grid grid-cols-[1.3fr_1.4fr_0.8fr_1.3fr_0.9fr_0.9fr_0.9fr] gap-3 border-b border-border px-4 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        <div className="sticky top-0 z-10 grid grid-cols-[1.3fr_1.4fr_0.8fr_1.3fr_0.9fr_0.9fr_0.9fr] gap-3 border-b border-border bg-card/95 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-card/70">
           <span>Code</span>
           <span>Customer</span>
           <span>Amount</span>
@@ -172,14 +170,20 @@ export function VouchersPage() {
         </div>
 
         {filtered.length === 0 ? (
-          <p className="py-12 text-center text-sm text-muted-foreground">
-            No vouchers match the current filters.
-          </p>
+          <div className="flex flex-col items-center gap-2 py-14 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground">
+              <Inbox size={18} />
+            </div>
+            <p className="text-sm font-semibold text-foreground">No vouchers found</p>
+            <p className="text-xs text-muted-foreground">
+              Try a different status filter or clear your search.
+            </p>
+          </div>
         ) : (
           filtered.map((v) => (
             <div
               key={v.id}
-              className="grid grid-cols-[1.3fr_1.4fr_0.8fr_1.3fr_0.9fr_0.9fr_0.9fr] items-center gap-3 border-b border-border/50 px-4 py-3 text-sm transition-colors last:border-b-0 hover:bg-foreground/[0.02]"
+              className="grid grid-cols-[1.3fr_1.4fr_0.8fr_1.3fr_0.9fr_0.9fr_0.9fr] items-center gap-3 border-b border-border/50 px-4 py-3 text-sm transition-colors last:border-b-0 hover:bg-foreground/[0.04]"
             >
               <span className="font-mono text-[12px] font-semibold tracking-wide text-foreground">
                 {v.code}
@@ -242,7 +246,7 @@ function StatCard({
 }) {
   const accentClass = {
     gold: 'text-brand-gold',
-    emerald: 'text-emerald-400',
+    emerald: 'text-success',
     purple: 'text-brand-purple-light',
     pink: 'text-brand-pink',
   }[accent];

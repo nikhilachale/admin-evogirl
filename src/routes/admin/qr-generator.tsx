@@ -4,6 +4,7 @@ import { toast } from '@/store/toast';
 import { useQrStore } from '@/store/qr';
 import { MOCK_QR_CARDS, QR_PRODUCT_PRESETS } from '@/data/qr-cards.mock';
 import type { GeneratedQrCard, QrCardConfig, QrCardUrls } from '@/types/qr';
+import { PageHeader } from '@/components/admin/page-header';
 import { QrConfigForm } from '@/components/admin/qr/qr-config-form';
 import {
   QrCardSideA,
@@ -139,15 +140,10 @@ export function QrGeneratorPage() {
 
   return (
     <div className="p-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold uppercase tracking-[0.18em]">
-          QR Card Generator
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Generate print-ready cards for product packaging · Both sides
-          auto-generated
-        </p>
-      </header>
+      <PageHeader
+        title="QR Card Generator"
+        subtitle="Generate print-ready cards for product packaging · Both sides auto-generated"
+      />
 
       <div className="grid gap-7 lg:grid-cols-[340px_1fr] lg:items-start">
         <QrConfigForm

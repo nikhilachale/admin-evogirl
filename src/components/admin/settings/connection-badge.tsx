@@ -7,13 +7,13 @@ const PALETTE: Record<
 > = {
   connected: {
     label: 'Connected',
-    tone: 'bg-emerald-500/12 text-emerald-400',
-    dot: 'bg-emerald-400',
+    tone: 'bg-success/12 text-success',
+    dot: 'bg-success',
   },
   running: {
     label: 'Running',
-    tone: 'bg-emerald-500/12 text-emerald-400',
-    dot: 'bg-emerald-400',
+    tone: 'bg-success/12 text-success',
+    dot: 'bg-success',
   },
   disconnected: {
     label: 'Disconnected',

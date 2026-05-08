@@ -12,7 +12,7 @@ export const badgeVariants = cva(
         destructive: 'border-transparent bg-destructive text-destructive-foreground',
         outline: 'text-foreground',
         pending: 'border-transparent bg-amber-500/15 text-amber-400',
-        resolved: 'border-transparent bg-emerald-500/15 text-emerald-400',
+        resolved: 'border-transparent bg-success/15 text-success',
         rejected: 'border-transparent bg-rose-500/15 text-rose-400',
         fraud: 'border-transparent bg-brand-pink/20 text-brand-pink',
       },

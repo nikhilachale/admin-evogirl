@@ -14,14 +14,14 @@ export function ProductCallouts({ callouts }: Props) {
           className={cn(
             'rounded-2xl border p-4',
             c.tone === 'top'
-              ? 'border-emerald-400/20 bg-gradient-to-br from-emerald-400/[0.08] to-emerald-400/[0.02]'
+              ? 'border-success/20 bg-gradient-to-br from-success/[0.08] to-success/[0.02]'
               : 'border-brand-pink/20 bg-gradient-to-br from-brand-pink/[0.08] to-brand-pink/[0.02]',
           )}
         >
           <div
             className={cn(
               'mb-1.5 text-[9px] font-extrabold tracking-[0.15em]',
-              c.tone === 'top' ? 'text-emerald-400' : 'text-brand-pink',
+              c.tone === 'top' ? 'text-success' : 'text-brand-pink',
             )}
           >
             {c.badge}

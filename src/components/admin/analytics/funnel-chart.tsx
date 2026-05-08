@@ -4,7 +4,7 @@ import type { FunnelStep } from '@/types/analytics';
 const ACCENT_BG: Record<FunnelStep['accent'], string> = {
   purple: 'bg-brand-purple-mid',
   pink: 'bg-brand-pink',
-  emerald: 'bg-emerald-400',
+  emerald: 'bg-success',
   gold: 'bg-brand-gold',
 };
 

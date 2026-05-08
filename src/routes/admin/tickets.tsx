@@ -18,14 +18,14 @@ export function TicketsPage() {
   useTicketShortcuts();
 
   return (
-    <div className="grid h-screen grid-cols-[360px_1fr]">
-      <section className="flex flex-col overflow-hidden border-r">
+    <div className="grid h-screen grid-cols-[minmax(320px,400px)_1fr] bg-background">
+      <section className="flex min-w-0 flex-col overflow-hidden border-r bg-card/35">
         <TicketsFilters />
         <div className="flex-1 overflow-y-auto">
           <TicketsList />
         </div>
       </section>
-      <section className="overflow-hidden">
+      <section className="min-w-0 overflow-hidden">
         <TicketDetail />
       </section>
     </div>

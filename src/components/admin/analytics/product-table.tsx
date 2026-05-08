@@ -96,13 +96,13 @@ export function ProductTable({ rows, sortBy, onSortChange }: Props) {
         {computed.list.map((p) => {
           const rateColor =
             p.returnRate < 3
-              ? 'text-emerald-400 bg-emerald-400/10'
+              ? 'text-success bg-success/10'
               : p.returnRate < 8
                 ? 'text-brand-gold bg-brand-gold/10'
                 : 'text-brand-pink bg-brand-pink/10';
           const ratingColor =
             p.rating >= 4.5
-              ? 'text-emerald-400'
+              ? 'text-success'
               : p.rating >= 4.2
                 ? 'text-brand-gold'
                 : 'text-brand-pink';

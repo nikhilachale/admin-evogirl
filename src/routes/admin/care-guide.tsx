@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { PageHeader } from '@/components/admin/page-header';
 import { CareEditorForm } from '@/components/admin/care-guide/care-editor-form';
 import { ProductList } from '@/components/admin/care-guide/product-list';
 import { S3Badge } from '@/components/admin/care-guide/s3-badge';
@@ -46,16 +47,12 @@ export function CareGuidePage() {
 
   return (
     <div className="p-8">
-      <header className="mb-2">
-        <h1 className="text-2xl font-bold uppercase tracking-[0.18em]">
-          Care Guide Editor
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage product care content and images · Stored on CephRGW S3
-        </p>
-      </header>
+      <PageHeader
+        title="Care Guide Editor"
+        subtitle="Manage product care content and images · Stored on CephRGW S3"
+      />
 
-      <div className="mb-6 mt-5 flex flex-wrap items-center gap-3">
+      <div className="mb-6 flex flex-wrap items-center gap-3">
         <S3Badge label="CephRGW Connected" />
         <span className="text-[11px] font-semibold text-muted-foreground">
           Bucket: evogirl-promise-assets · 14.2 GB used

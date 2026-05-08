@@ -4,7 +4,7 @@ import type { AnalyticsStat } from '@/types/analytics';
 const ACCENT_CLASS: Record<AnalyticsStat['accent'], string> = {
   gold: 'text-brand-gold',
   pink: 'text-brand-pink',
-  emerald: 'text-emerald-400',
+  emerald: 'text-success',
   'purple-light': 'text-brand-purple-light',
 };
 
@@ -25,7 +25,7 @@ export function StatTile({ stat }: { stat: AnalyticsStat }) {
       <div
         className={cn(
           'mt-2 text-[11px] font-semibold',
-          stat.direction === 'up' ? 'text-emerald-400' : 'text-brand-pink',
+          stat.direction === 'up' ? 'text-success' : 'text-brand-pink',
         )}
       >
         {stat.change}

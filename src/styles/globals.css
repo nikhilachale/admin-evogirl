@@ -68,6 +68,10 @@
     --destructive: 0 50% 55%;
     --destructive-foreground: var(--brand-purple-pale);
 
+    /* Muted dusty-jade — sits next to gold/pink without breaking the cool base. */
+    --success: 156 25% 52%;
+    --success-foreground: var(--brand-purple-pale);
+
     --border: 257 14% 28%;
     --input: 251 22% 18%;
     --ring: var(--brand-gold);
@@ -100,6 +104,9 @@
 
     --destructive: 0 60% 55%;
     --destructive-foreground: var(--brand-purple-pale);
+
+    --success: 156 32% 38%;
+    --success-foreground: var(--brand-purple-pale);
 
     --border: 258 21% 85%;
     --input: 258 21% 90%;

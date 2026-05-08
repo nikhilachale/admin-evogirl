@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PageHeader } from '@/components/admin/page-header';
 import { ChartCard } from '@/components/admin/analytics/chart-card';
 import { FunnelChart } from '@/components/admin/analytics/funnel-chart';
 import { LanguageDistribution } from '@/components/admin/analytics/language-distribution';
@@ -30,17 +31,11 @@ export function AnalyticsPage() {
 
   return (
     <div className="p-8">
-      <header className="mb-3.5 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-bold uppercase tracking-[0.18em] text-foreground">
-            Analytics
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            promise.evogirl.com · All channels
-          </p>
-        </div>
-        <RangeToggle value={range} onChange={setRange} />
-      </header>
+      <PageHeader
+        title="Analytics"
+        subtitle="promise.evogirl.com · All channels"
+        action={<RangeToggle value={range} onChange={setRange} />}
+      />
 
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         {MOCK_STATS.map((stat) => (

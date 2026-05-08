@@ -28,14 +28,14 @@ export function ToggleSwitch({
       className={cn(
         'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-        checked ? 'bg-emerald-500/30' : 'bg-foreground/10',
+        checked ? 'bg-success/30' : 'bg-foreground/10',
         disabled && 'cursor-not-allowed opacity-60',
       )}
     >
       <span
         className={cn(
           'absolute top-[3px] h-[18px] w-[18px] rounded-full transition-[left] duration-200',
-          checked ? 'left-[23px] bg-emerald-400' : 'left-[3px] bg-foreground',
+          checked ? 'left-[23px] bg-success' : 'left-[3px] bg-foreground',
         )}
       />
     </button>

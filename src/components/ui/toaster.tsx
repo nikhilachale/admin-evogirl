@@ -13,7 +13,7 @@ export function Toaster() {
             key={t.id}
             className={cn(
               'pointer-events-auto flex animate-fade-up items-start gap-3 rounded-lg border bg-popover p-4 shadow-lg',
-              t.tone === 'success' && 'border-emerald-500/40',
+              t.tone === 'success' && 'border-success/40',
               t.tone === 'error' && 'border-destructive/40',
             )}
           >

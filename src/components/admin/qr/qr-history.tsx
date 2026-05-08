@@ -47,8 +47,8 @@ export function QrHistory({ history }: Props) {
             <span className="flex items-center gap-1.5 text-[11px]">
               {c.printedAt ? (
                 <>
-                  <CheckCircle2 size={12} className="text-emerald-400" />
-                  <span className="text-emerald-400">Printed</span>
+                  <CheckCircle2 size={12} className="text-success" />
+                  <span className="text-success">Printed</span>
                 </>
               ) : (
                 <>
