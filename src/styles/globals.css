@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Theme setup
+  ───────────
+  Admin is dark-by-default (deep purple + gold).
+  Customer surfaces flip to light via a `.theme-light` wrapper class.
+
+  How to retheme
+  ──────────────
+  • Brand recolor (gold → emerald, etc.): edit the `--brand-*` block below.
+    Every `bg-brand-gold`, `text-brand-purple-light`, etc. updates instantly.
+  • Surface recolor (background, cards, borders): edit the semantic tokens
+    block (`--background`, `--card`, …) — the brand stays put.
+  • Light-mode overrides: edit the `.theme-light` block.
+*/
+
+@layer base {
+  /* ── Brand palette (HSL triplets so Tailwind opacity modifiers work) ──
+     Monochrome cool-purple ramp:
+       #1F1B2E → #5C5470 → #9189A8 → #C8C2D6 → #EDE8F5
+     Accents (gold, pink) are muted to harmonize with the cool base.
+  */
+  :root {
+    --brand-purple-darkest: 251 26% 14%;  /* #1F1B2E */
+    --brand-purple-deep:    254 20% 22%;  /* #2E2A3D — interpolated */
+    --brand-purple:         257 14% 38%;  /* #5C5470 */
+    --brand-purple-mid:     256 15% 49%;  /* #75708A — interpolated */
+    --brand-purple-light:   254 16% 60%;  /* #9189A8 */
+    --brand-purple-pale:    258 33% 94%;  /* #EDE8F5 */
+
+    --brand-gold:           38 35% 60%;   /* #C2A878 — muted champagne */
+    --brand-gold-light:     38 50% 75%;   /* #E0CCA0 */
+    --brand-gold-dark:      38 35% 42%;   /* #8C7250 */
+
+    --brand-pink:           340 28% 60%;  /* #B47F94 — muted dusty rose */
+    --brand-pink-light:     340 35% 78%;  /* #D9B3C2 */
+
+    --brand-white:          258 33% 96%;  /* #F2EEF8 */
+    --brand-gray:           258 21% 80%;  /* #C8C2D6 */
+  }
+
+  /* ── Semantic tokens (admin dark, default) ── */
+  :root {
+    --background: 251 26% 11%;
+    --foreground: var(--brand-purple-pale);
+
+    --card: 251 22% 16%;
+    --card-foreground: var(--brand-purple-pale);
+
+    --popover: 251 24% 18%;
+    --popover-foreground: var(--brand-purple-pale);
+
+    --primary: var(--brand-gold);
+    --primary-foreground: 251 26% 11%;
+
+    --secondary: 251 18% 22%;
+    --secondary-foreground: var(--brand-purple-pale);
+
+    --muted: 251 18% 19%;
+    --muted-foreground: var(--brand-purple-light);
+
+    --accent: var(--brand-purple);
+    --accent-foreground: var(--brand-purple-pale);
+
+    --destructive: 0 50% 55%;
+    --destructive-foreground: var(--brand-purple-pale);
+
+    --border: 257 14% 28%;
+    --input: 251 22% 18%;
+    --ring: var(--brand-gold);
+
+    --radius: 0.625rem;
+  }
+
+  /* ── Customer surface (light) ── */
+  .theme-light {
+    --background: 258 33% 96%;
+    --foreground: 251 26% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 251 26% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 251 26% 14%;
+
+    --primary: var(--brand-purple);
+    --primary-foreground: var(--brand-purple-pale);
+
+    --secondary: 258 21% 92%;
+    --secondary-foreground: 251 26% 14%;
+
+    --muted: 258 21% 94%;
+    --muted-foreground: var(--brand-purple);
+
+    --accent: 258 21% 88%;
+    --accent-foreground: 251 26% 14%;
+
+    --destructive: 0 60% 55%;
+    --destructive-foreground: var(--brand-purple-pale);
+
+    --border: 258 21% 85%;
+    --input: 258 21% 90%;
+    --ring: var(--brand-purple);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hidden {
+    scrollbar-width: none;
+  }
+}
