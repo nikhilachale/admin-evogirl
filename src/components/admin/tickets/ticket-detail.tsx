@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import { cn, formatINR, formatRelative } from '@/lib/utils';
 import { Kbd } from './kbd';
+import { TicketComposer } from './ticket-composer';
 import {
   AlertTriangle,
   Bot,
@@ -32,6 +33,8 @@ import type {
   TicketIssue,
   TicketKind,
 } from '@/types/domain';
+import { ResolutionChip } from './resolution-chip';
+import { CustomerHistory } from './customer-history';
 
 const KIND_LABEL: Record<TicketKind, string> = {
   return: 'Return',
@@ -157,6 +160,7 @@ export function TicketDetail() {
                 <Badge variant={resolved ? 'secondary' : 'pending'}>
                   {STATUS_LABEL[ticket.status]}
                 </Badge>
+                <ResolutionChip ticket={ticket} />
                 {ticket.tag && <Badge variant="fraud">{ticket.tag}</Badge>}
               </div>
               <h1 className="mt-1.5 truncate text-2xl font-bold leading-tight">
@@ -417,6 +421,7 @@ export function TicketDetail() {
                     </div>
                   </div>
                 ))}
+                {!resolved && <TicketComposer ticketId={ticket.id} />}
               </CardContent>
             </Card>
 
@@ -543,6 +548,8 @@ export function TicketDetail() {
                 />
               </CardContent>
             </Card>
+
+            <CustomerHistory ticket={ticket} />
           </aside>
         </div>
       </div>

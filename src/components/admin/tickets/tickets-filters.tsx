@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Search, X } from 'lucide-react';
 import { Kbd } from './kbd';
+import { SavedViewsRow } from './saved-views';
 import type { TicketStatus, TicketType } from '@/types/domain';
 
 const STATUSES: { value: TicketStatus | 'all'; label: string }[] = [
@@ -53,6 +54,8 @@ export function TicketsFilters() {
         </div>
       </div>
 
+      <SavedViewsRow />
+
       <label className="relative block">
         <Search
           aria-hidden="true"
@@ -61,7 +64,7 @@ export function TicketsFilters() {
         />
         <Input
           id="ticket-search"
-          placeholder="Search ID, customer, order…"
+          placeholder="Search by phone, order, SKU, customer…"
           value={filters.search}
           onChange={(e) => setFilter('search', e.target.value)}
           className="pl-9 pr-12"

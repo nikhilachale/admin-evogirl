@@ -1,22 +1,42 @@
 import { create } from 'zustand';
-import type { Ticket, TicketStatus, TicketType } from '@/types/domain';
+import type {
+  Ticket,
+  TicketMessage,
+  TicketStatus,
+  TicketType,
+} from '@/types/domain';
 import { toast } from './toast';
 import { checkDuplicateClaim } from '@/lib/api/marketplaces';
+
+export interface TicketsFilters {
+  status: TicketStatus | 'all';
+  type: TicketType | 'all';
+  search: string;
+}
 
 interface TicketsState {
   tickets: Ticket[];
   selectedId: string | null;
-  filters: {
-    status: TicketStatus | 'all';
-    type: TicketType | 'all';
-    search: string;
-  };
+  // Multi-select for bulk actions. Native Set — always assign a NEW Set
+  // so Zustand sees the change.
+  selectedIds: Set<string>;
+  filters: TicketsFilters;
+  // Active saved/preset view id. Predicate logic lives in
+  // `components/admin/tickets/saved-views.ts` — see option (b) note there.
+  activeView: string | null;
 
   select: (id: string | null) => void;
-  setFilter: <K extends keyof TicketsState['filters']>(
+  setFilter: <K extends keyof TicketsFilters>(
     key: K,
-    value: TicketsState['filters'][K],
+    value: TicketsFilters[K],
   ) => void;
+  setFilters: (filters: TicketsFilters) => void;
+  setActiveView: (id: string | null) => void;
+
+  toggleSelect: (id: string) => void;
+  clearSelection: () => void;
+  bulkReject: (reason?: string) => void;
+  bulkFlagFraud: () => void;
 
   approve: (id: string) => void;
   reject: (id: string, reason?: string) => void;
@@ -29,24 +49,96 @@ interface TicketsState {
   reassign: (id: string, agent: string) => void;
   runDupCheck: (id: string) => Promise<void>;
 
+  addMessage: (id: string, text: string) => void;
+  addNote: (id: string, text: string) => void;
+
   hydrate: (tickets: Ticket[]) => void;
 }
 
 export const useTicketsStore = create<TicketsState>((set, get) => ({
   tickets: [],
   selectedId: null,
+  selectedIds: new Set<string>(),
   filters: { status: 'all', type: 'all', search: '' },
+  activeView: null,
 
   select: (id) => set({ selectedId: id }),
 
   setFilter: (key, value) =>
     set((s) => ({ filters: { ...s.filters, [key]: value } })),
 
+  setFilters: (filters) => set({ filters }),
+
+  setActiveView: (id) => set({ activeView: id }),
+
+  toggleSelect: (id) =>
+    set((s) => {
+      const next = new Set(s.selectedIds);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return { selectedIds: next };
+    }),
+
+  clearSelection: () => set({ selectedIds: new Set<string>() }),
+
+  bulkReject: (reason) => {
+    const ids = Array.from(get().selectedIds);
+    if (ids.length === 0) return;
+    set((s) => ({
+      tickets: s.tickets.map((t) =>
+        s.selectedIds.has(t.id)
+          ? {
+              ...t,
+              status: 'rejected',
+              resolvedAt: Date.now(),
+              resolution: 'rejection',
+            }
+          : t,
+      ),
+      selectedIds: new Set<string>(),
+    }));
+    toast({
+      icon: '✗',
+      title: `${ids.length} tickets rejected`,
+      description: reason,
+      tone: 'error',
+    });
+  },
+
+  bulkFlagFraud: () => {
+    const ids = Array.from(get().selectedIds);
+    if (ids.length === 0) return;
+    set((s) => ({
+      tickets: s.tickets.map((t) =>
+        s.selectedIds.has(t.id)
+          ? {
+              ...t,
+              type: 'fraud',
+              tag: 'FRAUD FLAG',
+              tagCls: 'fraud',
+              dupCheck: { ...t.dupCheck, status: 'bad' },
+            }
+          : t,
+      ),
+      selectedIds: new Set<string>(),
+    }));
+    toast({
+      icon: '🚨',
+      title: `${ids.length} tickets flagged`,
+      tone: 'error',
+    });
+  },
+
   approve: (id) => {
     set((s) => ({
       tickets: s.tickets.map((t) =>
         t.id === id
-          ? { ...t, status: 'replacement-issued', resolvedAt: Date.now() }
+          ? {
+              ...t,
+              status: 'replacement-issued',
+              resolvedAt: Date.now(),
+              resolution: 'replacement',
+            }
           : t,
       ),
     }));
@@ -61,7 +153,14 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
   reject: (id, reason) => {
     set((s) => ({
       tickets: s.tickets.map((t) =>
-        t.id === id ? { ...t, status: 'rejected', resolvedAt: Date.now() } : t,
+        t.id === id
+          ? {
+              ...t,
+              status: 'rejected',
+              resolvedAt: Date.now(),
+              resolution: 'rejection',
+            }
+          : t,
       ),
     }));
     toast({
@@ -91,7 +190,14 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
   issueReplacement: (id) => {
     set((s) => ({
       tickets: s.tickets.map((t) =>
-        t.id === id ? { ...t, status: 'resolved', resolvedAt: Date.now() } : t,
+        t.id === id
+          ? {
+              ...t,
+              status: 'resolved',
+              resolvedAt: Date.now(),
+              resolution: 'replacement',
+            }
+          : t,
       ),
     }));
     toast({
@@ -105,7 +211,15 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
   issueRefund: (id) => {
     set((s) => ({
       tickets: s.tickets.map((t) =>
-        t.id === id ? { ...t, status: 'resolved', resolvedAt: Date.now() } : t,
+        t.id === id
+          ? {
+              ...t,
+              status: 'resolved',
+              resolvedAt: Date.now(),
+              resolution: 'refund',
+              resolutionAmount: t.order.amount,
+            }
+          : t,
       ),
     }));
     toast({
@@ -119,7 +233,15 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
   issueVoucher: (id, amount) => {
     set((s) => ({
       tickets: s.tickets.map((t) =>
-        t.id === id ? { ...t, status: 'resolved', resolvedAt: Date.now() } : t,
+        t.id === id
+          ? {
+              ...t,
+              status: 'resolved',
+              resolvedAt: Date.now(),
+              resolution: 'voucher',
+              resolutionAmount: amount,
+            }
+          : t,
       ),
     }));
     toast({
@@ -233,6 +355,49 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
         tone: 'error',
       });
     }
+  },
+
+  addMessage: (id, text) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const message: TicketMessage = {
+      id: crypto.randomUUID(),
+      from: 'agent',
+      text: trimmed,
+      at: Date.now(),
+    };
+    set((s) => ({
+      tickets: s.tickets.map((t) =>
+        t.id === id ? { ...t, messages: [...t.messages, message] } : t,
+      ),
+    }));
+    toast({
+      icon: '✉',
+      title: 'Reply sent',
+      description: `${id} — message delivered to customer.`,
+      tone: 'success',
+    });
+  },
+
+  addNote: (id, text) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const note: TicketMessage = {
+      id: crypto.randomUUID(),
+      from: 'agent',
+      text: trimmed,
+      at: Date.now(),
+    };
+    set((s) => ({
+      tickets: s.tickets.map((t) =>
+        t.id === id ? { ...t, notes: [...t.notes, note] } : t,
+      ),
+    }));
+    toast({
+      icon: '📝',
+      title: 'Note added',
+      description: `${id} — internal note saved.`,
+    });
   },
 
   hydrate: (tickets) => set({ tickets, selectedId: tickets[0]?.id ?? null }),

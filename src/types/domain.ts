@@ -6,6 +6,16 @@ export type TicketType = 'damage' | 'defect' | 'wrong-item' | 'fraud' | 'inquiry
 export type DupCheckStatus = 'ok' | 'bad' | 'unknown' | 'checking';
 export type Marketplace = 'amazon' | 'flipkart' | 'meesho' | 'myntra' | 'direct';
 
+// Records WHICH resolution path closed a ticket. Set by the store actions
+// (issueReplacement / issueRefund / issueVoucher / reject / approve) so
+// analytics and the UI can distinguish "Refunded ₹2,499" from "Replaced".
+export type TicketResolution =
+  | 'replacement'
+  | 'refund'
+  | 'voucher'
+  | 'rejection'
+  | 'escalation';
+
 // ── Real-domain ticket fields (added 2026-05-06) ─────────────────
 // Kept additive on `Ticket` so existing components keep working.
 // `type` above is the legacy/prototype categorization; `kind` + `issue`
@@ -83,6 +93,12 @@ export interface Ticket {
   priority: 'low' | 'normal' | 'high' | 'urgent';
   createdAt: number;
   resolvedAt?: number;
+  // Which resolution path closed this ticket (set when status moves out of
+  // `pending`). Optional because in-flight tickets haven't been resolved yet.
+  resolution?: TicketResolution;
+  // Monetary amount tied to the resolution (refund / voucher). Useful on
+  // the resolution chip so agents can see "Refunded ₹2,499" at a glance.
+  resolutionAmount?: number;
   dupCheck: DupCheck;
   // Conversation may be empty — some tickets are auto-created with no
   // customer messages (form submission, fraud flag, etc.).
