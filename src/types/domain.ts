@@ -1,9 +1,13 @@
 // Core domain types for the Promise admin console.
 // Mirrors the data shapes from the original promise-admin.html prototype.
 
-export type TicketStatus = 'pending' | 'resolved' | 'rejected' | 'replacement-issued';
-export type TicketType = 'damage' | 'defect' | 'wrong-item' | 'fraud' | 'inquiry';
-export type DupCheckStatus = 'ok' | 'bad' | 'unknown' | 'checking';
+export type TicketStatus =
+  | 'pending'
+  | 'resolved'
+  | 'rejected'
+  | 'replacement-issued'
+  | 'escalated';
+export type DupCheckStatus = 'ok' | 'bad' | 'unknown' | 'checking' | 'failed';
 export type Marketplace = 'amazon' | 'flipkart' | 'meesho' | 'myntra' | 'direct';
 
 // Records WHICH resolution path closed a ticket. Set by the store actions
@@ -13,16 +17,37 @@ export type TicketResolution =
   | 'replacement'
   | 'refund'
   | 'voucher'
-  | 'rejection'
-  | 'escalation';
+  | 'rejection';
 
-// ── Real-domain ticket fields (added 2026-05-06) ─────────────────
-// Kept additive on `Ticket` so existing components keep working.
-// `type` above is the legacy/prototype categorization; `kind` + `issue`
-// are how the support team actually thinks about a ticket.
-
-export type TicketKind = 'return' | 'replacement' | 'review-check';
-export type TicketIssue = 'damage' | 'color-change' | 'other';
+export type TicketRequestType = 'return' | 'replacement' | 'review-check' | 'refund';
+export type TicketIssueType =
+  | 'damage'
+  | 'color-change'
+  | 'wrong-item'
+  | 'defect'
+  | 'other';
+export type TicketRiskStatus = 'normal' | 'suspicious' | 'fraud' | 'duplicate';
+export type CustomerContactStatus =
+  | 'customer-notified'
+  | 'awaiting-customer-reply'
+  | 'reply-received'
+  | 'no-response'
+  | 'follow-up-scheduled';
+export type TicketAction =
+  | 'approve'
+  | 'reject'
+  | 'escalate'
+  | 'resolve'
+  | 'reopen';
+export type RejectionReasonCategory =
+  | 'duplicate-claim'
+  | 'invalid-order'
+  | 'outside-warranty-window'
+  | 'insufficient-proof'
+  | 'photo-mismatch'
+  | 'product-not-covered'
+  | 'suspected-fraud'
+  | 'other';
 
 export type AiReportFlag =
   | 'suspicious'
@@ -63,6 +88,16 @@ export interface DupCheck {
   status: DupCheckStatus;
   checked: string;
   details?: string;
+  priorClaims?: number;
+  matchingOrderIds?: string[];
+  matchSignals?: {
+    phone?: number;
+    email?: number;
+    address?: number;
+    sku?: number;
+  };
+  confidence?: number;
+  severity?: 'low' | 'medium' | 'high';
 }
 
 export interface TicketMessage {
@@ -73,21 +108,40 @@ export interface TicketMessage {
   attachments?: { type: 'image' | 'video'; url: string }[];
 }
 
+export interface TicketAttachmentReview {
+  id: string;
+  type: 'image' | 'video';
+  url: string;
+  reviewed: boolean;
+  suspicious?: boolean;
+  reason?: string;
+  imageMismatch?: boolean;
+}
+
+export interface ClaimEvidenceChecklist {
+  orderVerified: boolean;
+  deliveryVerified: boolean;
+  photosReviewed: boolean;
+  duplicateCheckPassed: boolean;
+  aiReportReviewed: boolean;
+  customerHistoryReviewed: boolean;
+}
+
 export interface Ticket {
   id: string;
   customer: Customer;
   order: Order;
   status: TicketStatus;
-  type: TicketType;
-  // Real-domain categorization (additive — see TicketKind/TicketIssue above).
-  // Optional during migration; required once all tickets are populated.
-  kind?: TicketKind;
-  issue?: TicketIssue;
+  requestType: TicketRequestType;
+  issueType: TicketIssueType;
+  riskStatus: TicketRiskStatus;
+  contactStatus: CustomerContactStatus;
+  evidence: ClaimEvidenceChecklist;
   // Upstream AI analysis. Read-only from this app.
   aiReport?: AiReport;
   // Photos the customer uploaded when raising the issue (damage shots,
   // color mismatch, packaging defect). Display on the detail panel.
-  issuePhotos?: string[];
+  issueAttachments?: TicketAttachmentReview[];
   tag?: string;
   tagCls?: string;
   priority: 'low' | 'normal' | 'high' | 'urgent';

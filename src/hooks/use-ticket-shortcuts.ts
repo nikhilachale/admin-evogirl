@@ -57,7 +57,8 @@ export function useTicketShortcuts() {
       const fieldFiltered = tickets.filter((t) => {
         if (filters.status !== 'all' && t.status !== filters.status)
           return false;
-        if (filters.type !== 'all' && t.type !== filters.type) return false;
+        if (filters.issueType !== 'all' && t.issueType !== filters.issueType)
+          return false;
         if (filters.search && !matchesSearch(t, filters.search)) return false;
         return true;
       });
@@ -76,15 +77,44 @@ export function useTicketShortcuts() {
         select(prev.id);
       } else if (e.key === 'a' && selectedId) {
         const t = tickets.find((x) => x.id === selectedId);
-        if (t && t.status !== 'resolved' && t.status !== 'rejected') {
+        if (
+          t &&
+          t.status !== 'resolved' &&
+          t.status !== 'rejected' &&
+          t.status !== 'replacement-issued'
+        ) {
           e.preventDefault();
+          const hasRisk =
+            t.dupCheck.status !== 'ok' ||
+            t.riskStatus !== 'normal' ||
+            Boolean(t.aiReport?.flags.length) ||
+            Boolean(t.issueAttachments?.some((attachment) => !attachment.reviewed));
+          if (
+            hasRisk &&
+            !window.confirm(
+              `Approve ${selectedId} even though it has risk or incomplete verification?`,
+            )
+          ) {
+            return;
+          }
           approve(selectedId);
         }
       } else if (e.key === 'x' && selectedId) {
         const t = tickets.find((x) => x.id === selectedId);
-        if (t && t.status !== 'resolved' && t.status !== 'rejected') {
+        if (
+          t &&
+          t.status !== 'resolved' &&
+          t.status !== 'rejected' &&
+          t.status !== 'replacement-issued'
+        ) {
           e.preventDefault();
-          reject(selectedId);
+          const reason = window.prompt(`Reason for rejecting ${selectedId}`);
+          if (
+            reason?.trim() &&
+            window.confirm(`Reject ${selectedId} with this reason?`)
+          ) {
+            reject(selectedId, 'other', reason);
+          }
         }
       }
     };

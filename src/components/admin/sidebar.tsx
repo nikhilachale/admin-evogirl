@@ -9,9 +9,11 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/shared/logo';
+import { useAuthStore } from '@/store/auth';
 
 const NAV = [
   { to: '/admin/tickets', label: 'Tickets', icon: Ticket },
@@ -24,6 +26,8 @@ const NAV = [
 
 export function AdminSidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const username = useAuthStore((state) => state.username);
+  const logout = useAuthStore((state) => state.logout);
 
   return (
     <aside
@@ -100,32 +104,45 @@ export function AdminSidebar() {
 
       <div
         className={cn(
-          'mt-auto border-t border-white/5 pt-3',
+          'mt-auto space-y-2 border-t border-white/5 pt-3',
           collapsed && 'flex justify-center',
         )}
       >
         {collapsed ? (
-          <div
-            className="h-7 w-7 rounded-full bg-gradient-to-br from-brand-gold to-brand-gold-dark text-center text-[11px] font-bold leading-7 text-brand-purple-darkest"
-            title="evogirl HQ"
+          <button
+            type="button"
+            onClick={logout}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-white/55 transition-colors hover:bg-white/[0.05] hover:text-brand-gold"
+            aria-label="Sign out"
+            title="Sign out"
           >
-            E
-          </div>
+            <LogOut size={15} />
+          </button>
         ) : (
-          <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-gold to-brand-gold-dark text-[11px] font-bold text-brand-purple-darkest">
-              E
+          <>
+            <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-gold to-brand-gold-dark text-[11px] font-bold text-brand-purple-darkest">
+                E
+              </div>
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-[11px] font-bold text-white/85">
+                  evogirl HQ
+                </span>
+                <span className="flex items-center gap-1.5 text-[10px] font-semibold text-white/45">
+                  <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_6px_hsl(var(--success))]" />
+                  {username ?? 'All systems live'}
+                </span>
+              </div>
             </div>
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate text-[11px] font-bold text-white/85">
-                evogirl HQ
-              </span>
-              <span className="flex items-center gap-1.5 text-[10px] font-semibold text-white/45">
-                <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_6px_hsl(var(--success))]" />
-                All systems live
-              </span>
-            </div>
-          </div>
+            <button
+              type="button"
+              onClick={logout}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-[11px] font-semibold text-white/55 transition-colors hover:bg-white/[0.05] hover:text-brand-gold"
+            >
+              <LogOut size={14} />
+              Sign out
+            </button>
+          </>
         )}
       </div>
     </aside>

@@ -34,12 +34,12 @@ export const PRESET_VIEWS: PresetView[] = [
   {
     id: 'all-open',
     name: 'All open',
-    filters: { status: 'pending', type: 'all', search: '' },
+    filters: { status: 'pending', issueType: 'all', search: '' },
   },
   {
     id: 'pending-review',
     name: 'Pending review',
-    filters: { status: 'pending', type: 'all', search: '' },
+    filters: { status: 'pending', issueType: 'all', search: '' },
     predicate: (t) =>
       !t.aiReport || !t.aiReport.flags.some((f) => FRAUD_AI_FLAGS.has(f)),
   },
@@ -48,12 +48,14 @@ export const PRESET_VIEWS: PresetView[] = [
     name: 'Fraud flagged',
     predicate: (t) =>
       t.tag === 'FRAUD FLAG' ||
+      t.riskStatus === 'fraud' ||
+      t.riskStatus === 'duplicate' ||
       (t.aiReport?.flags.some((f) => FRAUD_AI_FLAGS.has(f)) ?? false),
   },
   {
     id: 'resolved-week',
     name: 'Resolved this week',
-    filters: { status: 'resolved', type: 'all', search: '' },
+    filters: { status: 'resolved', issueType: 'all', search: '' },
     predicate: (t) =>
       t.status === 'resolved' &&
       typeof t.resolvedAt === 'number' &&
@@ -62,7 +64,7 @@ export const PRESET_VIEWS: PresetView[] = [
   {
     id: 'rejected',
     name: 'Rejected',
-    filters: { status: 'rejected', type: 'all', search: '' },
+    filters: { status: 'rejected', issueType: 'all', search: '' },
   },
 ];
 
@@ -78,7 +80,7 @@ function isFiltersShape(value: unknown): value is TicketsFilters {
   const v = value as Record<string, unknown>;
   return (
     typeof v.status === 'string' &&
-    typeof v.type === 'string' &&
+    typeof v.issueType === 'string' &&
     typeof v.search === 'string'
   );
 }

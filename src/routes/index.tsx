@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AdminLayout } from '@/routes/admin/layout';
 import { CustomerLayout } from '@/routes/customer/layout';
+import { LoginPage } from '@/routes/login';
 import { TicketsPage } from '@/routes/admin/tickets';
 import { AnalyticsPage } from '@/routes/admin/analytics';
 import { VouchersPage } from '@/routes/admin/vouchers';
@@ -14,7 +15,11 @@ import { FaqPage } from '@/routes/customer/faq';
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <Navigate to="/admin/tickets" replace />,
+    element: <Navigate to="/login" replace />,
+  },
+  {
+    path: '/login',
+    element: <LoginPage />,
   },
   {
     path: '/admin',

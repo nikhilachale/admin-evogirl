@@ -17,6 +17,7 @@ const STATUS_LABEL: Record<Ticket['status'], string> = {
   resolved: 'Resolved',
   rejected: 'Rejected',
   'replacement-issued': 'Replacement issued',
+  escalated: 'Escalated',
 };
 
 const STATUS_VARIANT: Record<
@@ -27,6 +28,7 @@ const STATUS_VARIANT: Record<
   resolved: 'resolved',
   rejected: 'rejected',
   'replacement-issued': 'secondary',
+  escalated: 'secondary',
 };
 
 interface CustomerHistoryProps {

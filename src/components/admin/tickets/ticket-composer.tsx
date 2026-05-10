@@ -1,34 +1,73 @@
 import { useState } from 'react';
-import { Lock, MessageSquare, Send, Sparkles } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Lock,
+  MessageSquare,
+  Send,
+  Sparkles,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useTicketsStore } from '@/store/tickets';
 import { MACROS } from '@/data/macros.mock';
+import type { Ticket } from '@/types/domain';
 
 type Mode = 'reply' | 'note';
+type SendState = 'draft' | 'needs-review' | 'sent';
 
 interface TicketComposerProps {
-  ticketId: string;
+  ticket: Ticket;
 }
 
-export function TicketComposer({ ticketId }: TicketComposerProps) {
+export function TicketComposer({ ticket }: TicketComposerProps) {
   const addMessage = useTicketsStore((s) => s.addMessage);
   const addNote = useTicketsStore((s) => s.addNote);
   const [mode, setMode] = useState<Mode>('reply');
   const [text, setText] = useState('');
   const [macrosOpen, setMacrosOpen] = useState(false);
+  const [sendState, setSendState] = useState<SendState>('draft');
 
   const trimmed = text.trim();
   const canSend = trimmed.length > 0;
+  const publicReplyNeedsReview =
+    mode === 'reply' &&
+    (ticket.dupCheck.status === 'bad' ||
+      ticket.dupCheck.status === 'failed' ||
+      ticket.dupCheck.status === 'unknown' ||
+      ticket.dupCheck.status === 'checking' ||
+      Boolean(ticket.aiReport?.flags.length));
+
+  const applyMacroVariables = (template: string) =>
+    template
+      .replace(/\{customerName\}/g, ticket.customer.name)
+      .replace(/\{ticketId\}/g, ticket.id)
+      .replace(/\{orderId\}/g, ticket.order.id)
+      .replace(
+        /\{reason\}/g,
+        ticket.dupCheck.details ?? ticket.aiReport?.summary ?? 'manual review',
+      )
+      .replace(
+        /\{nextStep\}/g,
+        ticket.dupCheck.status === 'ok'
+          ? 'processing your request'
+          : 'manual verification',
+      );
 
   const handleSend = () => {
     if (!canSend) return;
+    if (publicReplyNeedsReview && sendState !== 'needs-review') {
+      setSendState('needs-review');
+      return;
+    }
+
     if (mode === 'reply') {
-      addMessage(ticketId, trimmed);
+      addMessage(ticket.id, trimmed);
     } else {
-      addNote(ticketId, trimmed);
+      addNote(ticket.id, trimmed);
     }
     setText('');
+    setSendState('sent');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -50,7 +89,10 @@ export function TicketComposer({ ticketId }: TicketComposerProps) {
             type="button"
             role="tab"
             aria-selected={mode === 'reply'}
-            onClick={() => setMode('reply')}
+            onClick={() => {
+              setMode('reply');
+              setSendState('draft');
+            }}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs font-semibold transition-colors',
               mode === 'reply'
@@ -65,7 +107,10 @@ export function TicketComposer({ ticketId }: TicketComposerProps) {
             type="button"
             role="tab"
             aria-selected={mode === 'note'}
-            onClick={() => setMode('note')}
+            onClick={() => {
+              setMode('note');
+              setSendState('draft');
+            }}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs font-semibold transition-colors',
               mode === 'note'
@@ -111,7 +156,8 @@ export function TicketComposer({ ticketId }: TicketComposerProps) {
                         type="button"
                         role="menuitem"
                         onClick={() => {
-                          setText(m.text);
+                          setText(applyMacroVariables(m.text));
+                          setSendState('draft');
                           setMacrosOpen(false);
                         }}
                         className="block w-full px-3 py-2 text-left text-xs transition-colors hover:bg-primary/10"
@@ -134,7 +180,10 @@ export function TicketComposer({ ticketId }: TicketComposerProps) {
 
       <textarea
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value);
+          setSendState('draft');
+        }}
         onKeyDown={handleKeyDown}
         rows={3}
         placeholder={
@@ -147,6 +196,23 @@ export function TicketComposer({ ticketId }: TicketComposerProps) {
           mode === 'note' && 'border-brand-gold/40 bg-brand-gold/5',
         )}
       />
+
+      {publicReplyNeedsReview && sendState === 'needs-review' ? (
+        <div className="mt-2 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive">
+          <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+          <p>
+            This claim has risk or incomplete verification. Review the ticket
+            before sending a public reply, then press send again to confirm.
+          </p>
+        </div>
+      ) : null}
+
+      {sendState === 'sent' ? (
+        <div className="mt-2 flex items-center gap-2 rounded-md border border-success/30 bg-success/10 p-2.5 text-xs text-success">
+          <CheckCircle2 size={15} />
+          <span>{mode === 'reply' ? 'Reply sent.' : 'Note saved.'}</span>
+        </div>
+      ) : null}
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] text-muted-foreground">
@@ -175,7 +241,11 @@ export function TicketComposer({ ticketId }: TicketComposerProps) {
           className="gap-1.5"
         >
           <Send size={14} />
-          {mode === 'reply' ? 'Send reply' : 'Save note'}
+          {publicReplyNeedsReview && sendState === 'needs-review'
+            ? 'Confirm send'
+            : mode === 'reply'
+              ? 'Send reply'
+              : 'Save note'}
         </Button>
       </div>
     </div>

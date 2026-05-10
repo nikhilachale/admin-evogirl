@@ -36,7 +36,7 @@ export function SavedViewsRow() {
       // (if any) is applied separately in the list filter step.
       setFilters({
         status: preset.filters.status ?? 'all',
-        type: preset.filters.type ?? 'all',
+        issueType: preset.filters.issueType ?? 'all',
         search: preset.filters.search ?? '',
       });
     }
@@ -50,7 +50,7 @@ export function SavedViewsRow() {
 
   const handleClearActive = () => {
     setActiveView(null);
-    setFilters({ status: 'all', type: 'all', search: '' });
+    setFilters({ status: 'all', issueType: 'all', search: '' });
   };
 
   const handleSaveCurrent = () => {

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { Search, X } from 'lucide-react';
 import { Kbd } from './kbd';
 import { SavedViewsRow } from './saved-views';
-import type { TicketStatus, TicketType } from '@/types/domain';
+import type { TicketIssueType, TicketStatus } from '@/types/domain';
 
 const STATUSES: { value: TicketStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -12,15 +12,16 @@ const STATUSES: { value: TicketStatus | 'all'; label: string }[] = [
   { value: 'replacement-issued', label: 'Replaced' },
   { value: 'resolved', label: 'Resolved' },
   { value: 'rejected', label: 'Rejected' },
+  { value: 'escalated', label: 'Escalated' },
 ];
 
-const TYPES: { value: TicketType | 'all'; label: string }[] = [
+const ISSUE_TYPES: { value: TicketIssueType | 'all'; label: string }[] = [
   { value: 'all', label: 'All issues' },
   { value: 'damage', label: 'Damage' },
+  { value: 'color-change', label: 'Color change' },
   { value: 'defect', label: 'Defect' },
   { value: 'wrong-item', label: 'Wrong item' },
-  { value: 'fraud', label: 'Fraud' },
-  { value: 'inquiry', label: 'Inquiry' },
+  { value: 'other', label: 'Other' },
 ];
 
 export function TicketsFilters() {
@@ -31,7 +32,11 @@ export function TicketsFilters() {
   const pendingCount = tickets.filter((t) => t.status === 'pending').length;
   const urgentCount = tickets.filter((t) => t.priority === 'urgent').length;
   const fraudCount = tickets.filter(
-    (t) => t.tag || t.type === 'fraud' || t.dupCheck.status === 'bad',
+    (t) =>
+      t.tag ||
+      t.riskStatus === 'fraud' ||
+      t.riskStatus === 'duplicate' ||
+      t.dupCheck.status === 'bad',
   ).length;
 
   return (
@@ -103,13 +108,13 @@ export function TicketsFilters() {
       </div>
 
       <div className="flex flex-wrap gap-1.5">
-        {TYPES.map((type) => (
+        {ISSUE_TYPES.map((type) => (
           <button
             key={type.value}
-            onClick={() => setFilter('type', type.value)}
+            onClick={() => setFilter('issueType', type.value)}
             className={cn(
               'rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors',
-              filters.type === type.value
+              filters.issueType === type.value
                 ? 'bg-secondary text-secondary-foreground ring-1 ring-border'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
@@ -155,4 +160,3 @@ function QueueMetric({
     </div>
   );
 }
-

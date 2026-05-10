@@ -15,6 +15,7 @@ const STATUS_VARIANT: Record<
   resolved: 'resolved',
   rejected: 'rejected',
   'replacement-issued': 'secondary',
+  escalated: 'secondary',
 };
 
 const DUP_LABEL: Record<Ticket['dupCheck']['status'], string> = {
@@ -22,6 +23,7 @@ const DUP_LABEL: Record<Ticket['dupCheck']['status'], string> = {
   bad: 'Duplicate risk',
   unknown: 'Unchecked',
   checking: 'Checking',
+  failed: 'Check failed',
 };
 
 function getInitials(name: string) {
@@ -38,6 +40,8 @@ function getSeverityRail(t: Ticket): string {
   if (
     t.priority === 'urgent' ||
     t.dupCheck.status === 'bad' ||
+    t.dupCheck.status === 'failed' ||
+    t.riskStatus !== 'normal' ||
     t.tag ||
     (t.aiReport?.flags.length ?? 0) > 0
   ) {
@@ -80,7 +84,8 @@ export function TicketsList() {
 
   const fieldFiltered = tickets.filter((t) => {
     if (filters.status !== 'all' && t.status !== filters.status) return false;
-    if (filters.type !== 'all' && t.type !== filters.type) return false;
+    if (filters.issueType !== 'all' && t.issueType !== filters.issueType)
+      return false;
     if (filters.search && !matchesSearch(t, filters.search)) return false;
     return true;
   });
@@ -91,7 +96,7 @@ export function TicketsList() {
   if (filtered.length === 0) {
     const hasFilters =
       filters.status !== 'all' ||
-      filters.type !== 'all' ||
+      filters.issueType !== 'all' ||
       filters.search ||
       activeView;
     return (
@@ -114,7 +119,7 @@ export function TicketsList() {
               <button
                 onClick={() => {
                   setFilter('status', 'all');
-                  setFilter('type', 'all');
+                  setFilter('issueType', 'all');
                   setFilter('search', '');
                   useTicketsStore.getState().setActiveView(null);
                 }}
@@ -139,6 +144,8 @@ export function TicketsList() {
           const rail = getSeverityRail(t);
           const hasRisk =
             t.dupCheck.status === 'bad' ||
+            t.dupCheck.status === 'failed' ||
+            t.riskStatus !== 'normal' ||
             Boolean(t.tag) ||
             (t.aiReport?.flags.length ?? 0) > 0;
 
@@ -228,7 +235,9 @@ export function TicketsList() {
                     <span
                       className={cn(
                         'inline-flex items-center gap-1 font-medium',
-                        t.dupCheck.status === 'bad' && 'text-destructive',
+                        (t.dupCheck.status === 'bad' ||
+                          t.dupCheck.status === 'failed') &&
+                          'text-destructive',
                         t.dupCheck.status === 'ok' && 'text-success',
                       )}
                     >

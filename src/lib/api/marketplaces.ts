@@ -5,6 +5,15 @@ interface DupCheckResult {
   status: 'ok' | 'bad';
   details?: string;
   priorClaims: number;
+  matchingOrderIds?: string[];
+  matchSignals?: {
+    phone?: number;
+    email?: number;
+    address?: number;
+    sku?: number;
+  };
+  confidence?: number;
+  severity?: 'low' | 'medium' | 'high';
 }
 
 /**

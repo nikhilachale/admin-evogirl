@@ -6,7 +6,6 @@ const RESOLUTION_TONE: Record<TicketResolution, string> = {
   refund: 'bg-success/15 text-success',
   voucher: 'bg-brand-gold/15 text-brand-gold',
   rejection: 'bg-destructive/15 text-destructive',
-  escalation: 'bg-foreground/[0.08] text-foreground',
 };
 
 function getLabel(ticket: Ticket): string | null {
@@ -24,8 +23,6 @@ function getLabel(ticket: Ticket): string | null {
         : 'Voucher';
     case 'rejection':
       return 'Rejected';
-    case 'escalation':
-      return 'Escalated';
   }
 }
 
