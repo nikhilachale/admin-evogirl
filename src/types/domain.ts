@@ -8,7 +8,12 @@ export type TicketStatus =
   | 'replacement-issued'
   | 'escalated';
 export type DupCheckStatus = 'ok' | 'bad' | 'unknown' | 'checking' | 'failed';
-export type Marketplace = 'amazon' | 'flipkart' | 'meesho' | 'myntra' | 'direct';
+export type Marketplace =
+  | 'amazon'
+  | 'flipkart'
+  | 'meesho'
+  | 'myntra'
+  | 'direct';
 
 // Records WHICH resolution path closed a ticket. Set by the store actions
 // (issueReplacement / issueRefund / issueVoucher / reject / approve) so
@@ -19,7 +24,11 @@ export type TicketResolution =
   | 'voucher'
   | 'rejection';
 
-export type TicketRequestType = 'return' | 'replacement' | 'review-check' | 'refund';
+export type TicketRequestType =
+  | 'return'
+  | 'replacement'
+  | 'review-check'
+  | 'refund';
 export type TicketIssueType =
   | 'damage'
   | 'color-change'
@@ -62,7 +71,7 @@ export type AiReportFlag =
 export interface AiReport {
   flags: AiReportFlag[];
   summary?: string;
-  confidence?: number;   // 0–1
+  confidence?: number; // 0–1
   generatedAt: number;
 }
 
@@ -117,6 +126,8 @@ export interface TicketAttachmentReview {
   reason?: string;
   imageMismatch?: boolean;
 }
+
+export type TicketAttachmentReviewPatch = Partial<TicketAttachmentReview>;
 
 export interface ClaimEvidenceChecklist {
   orderVerified: boolean;

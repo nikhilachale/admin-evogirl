@@ -9,6 +9,7 @@ import {
   persistSavedViews,
   type SavedView,
 } from './saved-views-config';
+import { normalizeTicketsFilters } from './ticket-filtering';
 
 export function SavedViewsRow() {
   const filters = useTicketsStore((s) => s.filters);
@@ -35,9 +36,8 @@ export function SavedViewsRow() {
       // Snapshot the preset's field filters onto the store; the predicate
       // (if any) is applied separately in the list filter step.
       setFilters({
-        status: preset.filters.status ?? 'all',
-        issueType: preset.filters.issueType ?? 'all',
-        search: preset.filters.search ?? '',
+        ...normalizeTicketsFilters({}),
+        ...preset.filters,
       });
     }
     setActiveView(id);
@@ -50,7 +50,7 @@ export function SavedViewsRow() {
 
   const handleClearActive = () => {
     setActiveView(null);
-    setFilters({ status: 'all', issueType: 'all', search: '' });
+    setFilters(normalizeTicketsFilters({}));
   };
 
   const handleSaveCurrent = () => {

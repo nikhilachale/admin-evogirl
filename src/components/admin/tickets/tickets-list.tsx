@@ -1,11 +1,24 @@
 import { useTicketsStore } from '@/store/tickets';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatRelative } from '@/lib/utils';
-import { AlertTriangle, Check, CheckCircle2, Clock3 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  Clock3,
+  Headphones,
+  ShieldAlert,
+  UserRound,
+} from 'lucide-react';
 import type { Ticket } from '@/types/domain';
 import { BulkActionBar } from './bulk-action-bar';
-import { applyPresetPredicate } from './saved-views-config';
 import { ResolutionChip } from './resolution-chip';
+import {
+  applyVisibleTicketFilters,
+  getSlaState,
+  hasActiveTicketFilters,
+  normalizeTicketsFilters,
+} from './ticket-filtering';
 
 const STATUS_VARIANT: Record<
   Ticket['status'],
@@ -24,6 +37,14 @@ const DUP_LABEL: Record<Ticket['dupCheck']['status'], string> = {
   unknown: 'Unchecked',
   checking: 'Checking',
   failed: 'Check failed',
+};
+
+const MARKETPLACE_LABEL: Record<Ticket['order']['marketplace'], string> = {
+  amazon: 'Amazon',
+  flipkart: 'Flipkart',
+  meesho: 'Meesho',
+  myntra: 'Myntra',
+  direct: 'Direct',
 };
 
 function getInitials(name: string) {
@@ -51,54 +72,20 @@ function getSeverityRail(t: Ticket): string {
   return 'bg-transparent';
 }
 
-/**
- * Wider search predicate — case-insensitive substring match across the
- * ticket id, customer fields, order fields, optional tag, and AI report
- * flags.
- */
-function matchesSearch(t: Ticket, query: string): boolean {
-  const q = query.toLowerCase();
-  if (t.id.toLowerCase().includes(q)) return true;
-  if (t.customer.name.toLowerCase().includes(q)) return true;
-  if (t.customer.phone.toLowerCase().includes(q)) return true;
-  if (t.customer.email && t.customer.email.toLowerCase().includes(q))
-    return true;
-  if (t.order.id.toLowerCase().includes(q)) return true;
-  if (t.order.sku.toLowerCase().includes(q)) return true;
-  if (t.order.product.toLowerCase().includes(q)) return true;
-  if (t.order.marketplace.toLowerCase().includes(q)) return true;
-  if (t.tag && t.tag.toLowerCase().includes(q)) return true;
-  if (t.aiReport?.flags.some((f) => f.toLowerCase().includes(q))) return true;
-  return false;
-}
-
 export function TicketsList() {
   const tickets = useTicketsStore((s) => s.tickets);
   const filters = useTicketsStore((s) => s.filters);
   const activeView = useTicketsStore((s) => s.activeView);
   const selectedId = useTicketsStore((s) => s.selectedId);
   const select = useTicketsStore((s) => s.select);
-  const setFilter = useTicketsStore((s) => s.setFilter);
+  const setFilters = useTicketsStore((s) => s.setFilters);
   const selectedIds = useTicketsStore((s) => s.selectedIds);
   const toggleSelect = useTicketsStore((s) => s.toggleSelect);
 
-  const fieldFiltered = tickets.filter((t) => {
-    if (filters.status !== 'all' && t.status !== filters.status) return false;
-    if (filters.issueType !== 'all' && t.issueType !== filters.issueType)
-      return false;
-    if (filters.search && !matchesSearch(t, filters.search)) return false;
-    return true;
-  });
-
-  // Apply the active saved-view predicate (if it has one).
-  const filtered = applyPresetPredicate(fieldFiltered, activeView);
+  const filtered = applyVisibleTicketFilters(tickets, filters, activeView);
 
   if (filtered.length === 0) {
-    const hasFilters =
-      filters.status !== 'all' ||
-      filters.issueType !== 'all' ||
-      filters.search ||
-      activeView;
+    const hasFilters = hasActiveTicketFilters(filters, activeView);
     return (
       <div className="flex h-full flex-col">
         <BulkActionBar />
@@ -118,9 +105,7 @@ export function TicketsList() {
             {hasFilters && (
               <button
                 onClick={() => {
-                  setFilter('status', 'all');
-                  setFilter('issueType', 'all');
-                  setFilter('search', '');
+                  setFilters(normalizeTicketsFilters({}));
                   useTicketsStore.getState().setActiveView(null);
                 }}
                 className="mt-4 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted"
@@ -142,6 +127,7 @@ export function TicketsList() {
           const isSelected = selectedId === t.id;
           const isChecked = selectedIds.has(t.id);
           const rail = getSeverityRail(t);
+          const sla = getSlaState(t);
           const hasRisk =
             t.dupCheck.status === 'bad' ||
             t.dupCheck.status === 'failed' ||
@@ -251,6 +237,29 @@ export function TicketsList() {
                     <span className="inline-flex shrink-0 items-center gap-1 tabular-nums">
                       <Clock3 size={13} />
                       {formatRelative(t.createdAt)}
+                    </span>
+                  </div>
+
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5">
+                      <Headphones size={11} />
+                      {MARKETPLACE_LABEL[t.order.marketplace]}
+                    </span>
+                    <span className="inline-flex min-w-0 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5">
+                      <UserRound size={11} />
+                      <span className="max-w-[110px] truncate">
+                        {t.agent ?? 'Unassigned'}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5',
+                        sla.tone === 'danger' && 'text-destructive',
+                        sla.tone === 'warning' && 'text-brand-gold',
+                      )}
+                    >
+                      <ShieldAlert size={11} />
+                      {sla.label}
                     </span>
                   </div>
 

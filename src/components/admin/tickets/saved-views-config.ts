@@ -29,12 +29,14 @@ export interface PresetView {
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 const FRAUD_AI_FLAGS = new Set(['fraud', 'suspicious', 'duplicate']);
+const OPEN_STATUSES = new Set<Ticket['status']>(['pending', 'escalated']);
 
 export const PRESET_VIEWS: PresetView[] = [
   {
     id: 'all-open',
     name: 'All open',
-    filters: { status: 'pending', issueType: 'all', search: '' },
+    filters: { status: 'all', issueType: 'all', search: '' },
+    predicate: (t) => OPEN_STATUSES.has(t.status),
   },
   {
     id: 'pending-review',
@@ -46,11 +48,40 @@ export const PRESET_VIEWS: PresetView[] = [
   {
     id: 'fraud-flagged',
     name: 'Fraud flagged',
+    filters: { riskStatus: 'all', issueType: 'all', search: '' },
     predicate: (t) =>
       t.tag === 'FRAUD FLAG' ||
       t.riskStatus === 'fraud' ||
       t.riskStatus === 'duplicate' ||
       (t.aiReport?.flags.some((f) => FRAUD_AI_FLAGS.has(f)) ?? false),
+  },
+  {
+    id: 'urgent-sla',
+    name: 'Urgent SLA',
+    filters: { status: 'all', priority: 'urgent', issueType: 'all', search: '' },
+    predicate: (t) => OPEN_STATUSES.has(t.status),
+  },
+  {
+    id: 'needs-evidence',
+    name: 'Needs evidence',
+    filters: {
+      status: 'all',
+      evidence: 'incomplete',
+      issueType: 'all',
+      search: '',
+    },
+    predicate: (t) => OPEN_STATUSES.has(t.status),
+  },
+  {
+    id: 'attachments-review',
+    name: 'Attachments review',
+    filters: {
+      status: 'all',
+      attachments: 'unreviewed',
+      issueType: 'all',
+      search: '',
+    },
+    predicate: (t) => OPEN_STATUSES.has(t.status),
   },
   {
     id: 'resolved-week',
@@ -75,24 +106,62 @@ export function getPresetView(id: string | null): PresetView | undefined {
 
 export const SAVED_VIEWS_STORAGE_KEY = 'evogirl.tickets.views';
 
-function isFiltersShape(value: unknown): value is TicketsFilters {
-  if (!value || typeof value !== 'object') return false;
+function normalizeFiltersShape(value: unknown): TicketsFilters | null {
+  if (!value || typeof value !== 'object') return null;
   const v = value as Record<string, unknown>;
-  return (
+  if (
     typeof v.status === 'string' &&
     typeof v.issueType === 'string' &&
     typeof v.search === 'string'
-  );
+  ) {
+    return {
+      status: v.status as TicketsFilters['status'],
+      issueType: v.issueType as TicketsFilters['issueType'],
+      search: v.search,
+      priority:
+        typeof v.priority === 'string'
+          ? (v.priority as TicketsFilters['priority'])
+          : 'all',
+      marketplace:
+        typeof v.marketplace === 'string'
+          ? (v.marketplace as TicketsFilters['marketplace'])
+          : 'all',
+      assignee:
+        typeof v.assignee === 'string'
+          ? (v.assignee as TicketsFilters['assignee'])
+          : 'all',
+      contactStatus:
+        typeof v.contactStatus === 'string'
+          ? (v.contactStatus as TicketsFilters['contactStatus'])
+          : 'all',
+      riskStatus:
+        typeof v.riskStatus === 'string'
+          ? (v.riskStatus as TicketsFilters['riskStatus'])
+          : 'all',
+      dupCheck:
+        typeof v.dupCheck === 'string'
+          ? (v.dupCheck as TicketsFilters['dupCheck'])
+          : 'all',
+      attachments:
+        typeof v.attachments === 'string'
+          ? (v.attachments as TicketsFilters['attachments'])
+          : 'all',
+      evidence:
+        typeof v.evidence === 'string'
+          ? (v.evidence as TicketsFilters['evidence'])
+          : 'all',
+    };
+  }
+  return null;
 }
 
-function isSavedView(value: unknown): value is SavedView {
-  if (!value || typeof value !== 'object') return false;
+function normalizeSavedView(value: unknown): SavedView | null {
+  if (!value || typeof value !== 'object') return null;
   const v = value as Record<string, unknown>;
-  return (
-    typeof v.id === 'string' &&
-    typeof v.name === 'string' &&
-    isFiltersShape(v.filters)
-  );
+  if (typeof v.id !== 'string' || typeof v.name !== 'string') return null;
+  const filters = normalizeFiltersShape(v.filters);
+  if (!filters) return null;
+  return { id: v.id, name: v.name, filters };
 }
 
 export function loadSavedViews(): SavedView[] {
@@ -101,7 +170,9 @@ export function loadSavedViews(): SavedView[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isSavedView);
+    return parsed
+      .map(normalizeSavedView)
+      .filter((view): view is SavedView => Boolean(view));
   } catch {
     return [];
   }

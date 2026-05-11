@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -21,6 +21,7 @@ interface TicketComposerProps {
 }
 
 export function TicketComposer({ ticket }: TicketComposerProps) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const addMessage = useTicketsStore((s) => s.addMessage);
   const addNote = useTicketsStore((s) => s.addNote);
   const [mode, setMode] = useState<Mode>('reply');
@@ -30,6 +31,7 @@ export function TicketComposer({ ticket }: TicketComposerProps) {
 
   const trimmed = text.trim();
   const canSend = trimmed.length > 0;
+  const pinnedMacros = MACROS.filter((macro) => macro.pinned);
   const publicReplyNeedsReview =
     mode === 'reply' &&
     (ticket.dupCheck.status === 'bad' ||
@@ -54,6 +56,18 @@ export function TicketComposer({ ticket }: TicketComposerProps) {
           : 'manual verification',
       );
 
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`;
+  }, [text]);
+
+  const applyMacro = (template: string) => {
+    setText(applyMacroVariables(template));
+    setSendState('draft');
+  };
+
   const handleSend = () => {
     if (!canSend) return;
     if (publicReplyNeedsReview && sendState !== 'needs-review') {
@@ -70,7 +84,7 @@ export function TicketComposer({ ticket }: TicketComposerProps) {
     setSendState('sent');
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       handleSend();
@@ -156,8 +170,7 @@ export function TicketComposer({ ticket }: TicketComposerProps) {
                         type="button"
                         role="menuitem"
                         onClick={() => {
-                          setText(applyMacroVariables(m.text));
-                          setSendState('draft');
+                          applyMacro(m.text);
                           setMacrosOpen(false);
                         }}
                         className="block w-full px-3 py-2 text-left text-xs transition-colors hover:bg-primary/10"
@@ -178,7 +191,28 @@ export function TicketComposer({ ticket }: TicketComposerProps) {
         </div>
       </div>
 
+      {pinnedMacros.length > 0 && (
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Pinned
+          </span>
+          {pinnedMacros.map((macro) => (
+            <button
+              key={macro.id}
+              type="button"
+              onClick={() => applyMacro(macro.text)}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-foreground"
+              title={macro.text}
+            >
+              <Sparkles size={11} className="text-brand-gold" />
+              {macro.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <textarea
+        ref={textareaRef}
         value={text}
         onChange={(e) => {
           setText(e.target.value);

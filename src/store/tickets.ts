@@ -1,12 +1,16 @@
 import { create } from 'zustand';
 import type {
   ClaimEvidenceChecklist,
+  CustomerContactStatus,
+  DupCheckStatus,
+  Marketplace,
   RejectionReasonCategory,
   Ticket,
   TicketAction,
   TicketMessage,
   TicketStatus,
   TicketIssueType,
+  TicketRiskStatus,
 } from '@/types/domain';
 import { toast } from './toast';
 import { checkDuplicateClaim } from '@/lib/api/marketplaces';
@@ -15,6 +19,14 @@ export interface TicketsFilters {
   status: TicketStatus | 'all';
   issueType: TicketIssueType | 'all';
   search: string;
+  priority: Ticket['priority'] | 'all';
+  marketplace: Marketplace | 'all';
+  assignee: string | 'all' | 'unassigned';
+  contactStatus: CustomerContactStatus | 'all';
+  riskStatus: TicketRiskStatus | 'all';
+  dupCheck: DupCheckStatus | 'all';
+  attachments: 'all' | 'has' | 'none' | 'unreviewed' | 'suspicious';
+  evidence: keyof ClaimEvidenceChecklist | 'incomplete' | 'all';
 }
 
 interface TicketsState {
@@ -123,7 +135,19 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
   tickets: [],
   selectedId: null,
   selectedIds: new Set<string>(),
-  filters: { status: 'all', issueType: 'all', search: '' },
+  filters: {
+    status: 'all',
+    issueType: 'all',
+    search: '',
+    priority: 'all',
+    marketplace: 'all',
+    assignee: 'all',
+    contactStatus: 'all',
+    riskStatus: 'all',
+    dupCheck: 'all',
+    attachments: 'all',
+    evidence: 'all',
+  },
   activeView: null,
 
   select: (id) => set({ selectedId: id }),
