@@ -17,3 +17,4 @@ dist-ssr
 
 # Claude
 .claude/cache/
+.claude/worktrees/
