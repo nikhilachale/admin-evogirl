@@ -131,6 +131,36 @@ export function TicketDetail() {
     issueReplacement,
   } = useTicketsStore();
 
+  const priorCustomerTickets = useMemo(() => {
+    if (!ticket) return [] as Ticket[];
+    return tickets.filter(
+      (candidate) =>
+        candidate.customer.id === ticket.customer.id &&
+        candidate.id !== ticket.id,
+    );
+  }, [tickets, ticket]);
+
+  const customerStats = useMemo(() => {
+    const prior = priorCustomerTickets;
+    const approved = prior.filter(
+      (t) => t.status === 'resolved' || t.status === 'replacement-issued',
+    ).length;
+    const approvalRate =
+      prior.length > 0 ? Math.round((approved / prior.length) * 100) : null;
+    const flagged = prior.filter(
+      (t) =>
+        t.riskStatus === 'fraud' ||
+        t.riskStatus === 'duplicate' ||
+        t.riskStatus === 'suspicious' ||
+        Boolean(t.aiReport?.flags.length),
+    ).length;
+    return {
+      priorCount: prior.length,
+      approvalRate,
+      flagged,
+    };
+  }, [priorCustomerTickets]);
+
   if (!selectedId || !ticket) {
     const pendingCount = tickets.filter((t) => t.status === 'pending').length;
     return (
@@ -174,37 +204,12 @@ export function TicketDetail() {
   const pendingAttachmentReviews =
     ticket.issueAttachments?.filter((attachment) => !attachment.reviewed)
       .length ?? 0;
-  const priorCustomerTickets = tickets.filter(
-    (candidate) =>
-      candidate.customer.id === ticket.customer.id &&
-      candidate.id !== ticket.id,
-  );
   const hasPriorRejectedOrFraud = priorCustomerTickets.some(
     (candidate) =>
       candidate.status === 'rejected' ||
       candidate.riskStatus === 'fraud' ||
       candidate.riskStatus === 'duplicate',
   );
-  const customerStats = useMemo(() => {
-    const prior = priorCustomerTickets;
-    const approved = prior.filter(
-      (t) => t.status === 'resolved' || t.status === 'replacement-issued',
-    ).length;
-    const approvalRate =
-      prior.length > 0 ? Math.round((approved / prior.length) * 100) : null;
-    const flagged = prior.filter(
-      (t) =>
-        t.riskStatus === 'fraud' ||
-        t.riskStatus === 'duplicate' ||
-        t.riskStatus === 'suspicious' ||
-        Boolean(t.aiReport?.flags.length),
-    ).length;
-    return {
-      priorCount: prior.length,
-      approvalRate,
-      flagged,
-    };
-  }, [priorCustomerTickets]);
   const risk = getRiskScore(ticket);
   const sla = getSlaState(ticket);
   const recommendation = getRecommendation(ticket);
@@ -652,6 +657,103 @@ export function TicketDetail() {
       ) : (
         <TicketClosedActions key={ticket.id} ticket={ticket} />
       )}
+    </div>
+  );
+}
+
+function CustomerStatStrip({
+  priorCount,
+  approvalRate,
+  flagged,
+}: {
+  priorCount: number;
+  approvalRate: number | null;
+  flagged: number;
+}) {
+  if (priorCount === 0) {
+    return (
+      <p className="mt-2 text-xs text-muted-foreground">
+        First ticket from this customer in the queue.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      <span>
+        <span className="font-semibold text-foreground">{priorCount}</span> prior
+        ticket{priorCount === 1 ? '' : 's'}
+      </span>
+      {approvalRate !== null && (
+        <span>
+          <span className="font-semibold text-foreground">{approvalRate}%</span>{' '}
+          clean resolution (prior)
+        </span>
+      )}
+      {flagged > 0 ? (
+        <span className="text-destructive">
+          <span className="font-semibold">{flagged}</span> with risk flags
+        </span>
+      ) : (
+        <span className="text-muted-foreground">No prior risk flags</span>
+      )}
+    </div>
+  );
+}
+
+function RiskScoreRing({
+  score,
+  level,
+}: {
+  score: number;
+  level: 'low' | 'medium' | 'high';
+}) {
+  const size = 52;
+  const stroke = 4;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c - (score / 100) * c;
+  const strokeClass =
+    level === 'high'
+      ? 'stroke-destructive'
+      : level === 'medium'
+        ? 'stroke-brand-gold'
+        : 'stroke-success';
+
+  return (
+    <div
+      className="relative h-[52px] w-[52px] shrink-0"
+      role="img"
+      aria-label={`Risk score ${score} out of 100, ${level} risk`}
+    >
+      <svg
+        width={size}
+        height={size}
+        className="-rotate-90"
+        aria-hidden="true"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          className="stroke-muted/40"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          className={cn(strokeClass, 'transition-[stroke-dashoffset]')}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={offset}
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold tabular-nums text-foreground">
+        {score}
+      </span>
     </div>
   );
 }
