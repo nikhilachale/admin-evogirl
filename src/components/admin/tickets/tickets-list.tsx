@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { useTicketsStore } from '@/store/tickets';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
   AlertTriangle,
+  Bell,
   Check,
   CheckCircle2,
   Clock3,
@@ -18,7 +20,9 @@ import {
   getAgeBucket,
   getSlaState,
   hasActiveTicketFilters,
+  isSnoozeActive,
   normalizeTicketsFilters,
+  sortQueueTickets,
 } from './ticket-filtering';
 
 const STATUS_VARIANT: Record<
@@ -106,7 +110,13 @@ export function TicketsList() {
   const selectedIds = useTicketsStore((s) => s.selectedIds);
   const toggleSelect = useTicketsStore((s) => s.toggleSelect);
 
-  const filtered = applyVisibleTicketFilters(tickets, filters, activeView);
+  const filtered = useMemo(
+    () =>
+      sortQueueTickets(
+        applyVisibleTicketFilters(tickets, filters, activeView),
+      ),
+    [tickets, filters, activeView],
+  );
 
   if (filtered.length === 0) {
     const hasFilters = hasActiveTicketFilters(filters, activeView);
@@ -153,6 +163,7 @@ export function TicketsList() {
           const rail = getSeverityRail(t);
           const sla = getSlaState(t);
           const age = getAgeBucket(t);
+          const snoozed = isSnoozeActive(t);
           const hasRisk =
             t.dupCheck.status === 'bad' ||
             t.dupCheck.status === 'failed' ||
@@ -269,6 +280,15 @@ export function TicketsList() {
                       <Clock3 size={11} />
                       {age.label}
                     </span>
+                    {snoozed && (
+                      <span
+                        className="inline-flex shrink-0 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
+                        title="Snoozed — appears after active tickets"
+                      >
+                        <Bell size={11} />
+                        Snoozed
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">

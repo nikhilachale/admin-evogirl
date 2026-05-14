@@ -8,6 +8,7 @@ import type {
 } from '@/types/domain';
 import type { TicketsFilters } from '@/store/tickets';
 import { getPresetView } from './saved-views-config';
+import { formatRelative } from '@/lib/utils';
 
 export type PriorityFilter = Ticket['priority'] | 'all';
 export type MarketplaceFilter = Marketplace | 'all';
@@ -45,6 +46,24 @@ export function normalizeTicketsFilters(
 
 export function isOpenTicket(ticket: Ticket): boolean {
   return ticket.status === 'pending' || ticket.status === 'escalated';
+}
+
+export function isSnoozeActive(ticket: Ticket, now = Date.now()): boolean {
+  return (
+    isOpenTicket(ticket) &&
+    typeof ticket.snoozedUntil === 'number' &&
+    ticket.snoozedUntil > now
+  );
+}
+
+/** Snoozed open tickets sort after active open tickets (Zendesk-style). */
+export function sortQueueTickets(tickets: Ticket[], now = Date.now()): Ticket[] {
+  return [...tickets].sort((a, b) => {
+    const sa = isSnoozeActive(a, now) ? 1 : 0;
+    const sb = isSnoozeActive(b, now) ? 1 : 0;
+    if (sa !== sb) return sa - sb;
+    return b.createdAt - a.createdAt;
+  });
 }
 
 export function hasIncompleteEvidence(ticket: Ticket): boolean {
@@ -356,6 +375,13 @@ export function getRecommendation(ticket: Ticket): {
       action: 'review-risk',
       label: 'Review escalation',
       tone: 'danger',
+    };
+  }
+  if (isSnoozeActive(ticket)) {
+    return {
+      action: 'none',
+      label: `Snoozed until ${formatRelative(ticket.snoozedUntil!)}`,
+      tone: 'muted',
     };
   }
   if (ticket.dupCheck.status === 'bad' || ticket.riskStatus === 'fraud') {

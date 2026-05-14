@@ -16,6 +16,7 @@ import { TicketComposer } from './ticket-composer';
 import {
   AlertTriangle,
   ArrowRight,
+  Bell,
   Bot,
   CheckCircle2,
   Clock3,
@@ -43,10 +44,12 @@ import {
 } from './ticket-action-dialogs';
 import { IssueAttachmentsPanel } from './issue-attachments-panel';
 import { TicketTimeline } from './ticket-timeline';
+import { SnoozeCard } from './snooze-card';
 import {
   getRecommendation,
   getRiskScore,
   getSlaState,
+  isSnoozeActive,
   type RecommendedAction,
 } from './ticket-filtering';
 
@@ -281,6 +284,12 @@ export function TicketDetail() {
                 <Badge variant={resolved ? 'secondary' : 'pending'}>
                   {STATUS_LABEL[ticket.status]}
                 </Badge>
+                {!resolved && isSnoozeActive(ticket) && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Bell size={11} aria-hidden />
+                    Snoozed
+                  </Badge>
+                )}
                 <ResolutionChip ticket={ticket} />
                 {ticket.tag && <Badge variant="fraud">{ticket.tag}</Badge>}
                 {!resolved && (
@@ -402,6 +411,8 @@ export function TicketDetail() {
             </Card>
 
             <CustomerIntakeCard ticket={ticket} />
+
+            <SnoozeCard ticket={ticket} />
 
             <div id={`ticket-photos-${ticket.id}`}>
               <IssueAttachmentsPanel
@@ -599,6 +610,17 @@ export function TicketDetail() {
                   label="Contact"
                   value={CONTACT_LABEL[ticket.contactStatus]}
                 />
+                {ticket.snoozedUntil != null && (
+                  <SummaryItem
+                    icon={<Bell size={15} />}
+                    label="Snooze"
+                    value={
+                      isSnoozeActive(ticket)
+                        ? `Until ${formatRelative(ticket.snoozedUntil)}`
+                        : `Was ${formatRelative(ticket.snoozedUntil)}`
+                    }
+                  />
+                )}
                 <SummaryItem
                   icon={<Bot size={15} />}
                   label="AI confidence"

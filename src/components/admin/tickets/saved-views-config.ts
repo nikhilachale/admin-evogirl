@@ -39,6 +39,15 @@ export const PRESET_VIEWS: PresetView[] = [
     predicate: (t) => OPEN_STATUSES.has(t.status),
   },
   {
+    id: 'snoozed',
+    name: 'Snoozed',
+    filters: { status: 'all', issueType: 'all', search: '' },
+    predicate: (t) =>
+      OPEN_STATUSES.has(t.status) &&
+      typeof t.snoozedUntil === 'number' &&
+      t.snoozedUntil > Date.now(),
+  },
+  {
     id: 'pending-review',
     name: 'Pending review',
     filters: { status: 'pending', issueType: 'all', search: '' },

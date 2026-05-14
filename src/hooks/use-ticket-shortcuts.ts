@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useTicketsStore } from '@/store/tickets';
-import { applyVisibleTicketFilters } from '@/components/admin/tickets/ticket-filtering';
+import { applyVisibleTicketFilters, sortQueueTickets } from '@/components/admin/tickets/ticket-filtering';
 
 /**
  * Wires the keyboard shortcuts the original prototype had:
@@ -35,7 +35,9 @@ export function useTicketShortcuts() {
         return;
       }
 
-      const visible = applyVisibleTicketFilters(tickets, filters, activeView);
+      const visible = sortQueueTickets(
+        applyVisibleTicketFilters(tickets, filters, activeView),
+      );
       if (visible.length === 0) return;
 
       const idx = visible.findIndex((t) => t.id === selectedId);

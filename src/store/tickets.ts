@@ -14,6 +14,7 @@ import type {
 } from '@/types/domain';
 import { toast } from './toast';
 import { checkDuplicateClaim } from '@/lib/api/marketplaces';
+import { ensureClaimAcknowledgementMessages } from '@/lib/claim-auto-ack';
 
 export interface TicketsFilters {
   status: TicketStatus | 'all';
@@ -81,6 +82,9 @@ interface TicketsState {
 
   addMessage: (id: string, text: string) => void;
   addNote: (id: string, text: string) => void;
+
+  snoozeTicket: (id: string, until: number) => void;
+  clearSnooze: (id: string) => void;
 
   hydrate: (tickets: Ticket[]) => void;
 }
@@ -192,6 +196,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
         ids.includes(t.id)
           ? {
               ...t,
+              snoozedUntil: undefined,
               status: 'rejected',
               resolvedAt: now,
               resolution: 'rejection',
@@ -277,6 +282,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
         t.id === id
           ? {
               ...t,
+              snoozedUntil: undefined,
               status: 'replacement-issued',
               resolvedAt: now,
               resolution: 'replacement',
@@ -318,6 +324,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
         t.id === id
           ? {
               ...t,
+              snoozedUntil: undefined,
               status: 'rejected',
               resolvedAt: now,
               resolution: 'rejection',
@@ -358,6 +365,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
         t.id === id && canTransition(t, 'reopen')
           ? {
               ...t,
+              snoozedUntil: undefined,
               status: 'pending',
               resolvedAt: undefined,
               resolution: undefined,
@@ -387,6 +395,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
         t.id === id
           ? {
               ...t,
+              snoozedUntil: undefined,
               status: 'resolved',
               resolvedAt: now,
               notes: [...t.notes, createSystemNote('Ticket resolved.', now)],
@@ -408,6 +417,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
         t.id === id
           ? {
               ...t,
+              snoozedUntil: undefined,
               status: 'resolved',
               resolvedAt: Date.now(),
               resolution: 'replacement',
@@ -429,6 +439,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
         t.id === id
           ? {
               ...t,
+              snoozedUntil: undefined,
               status: 'resolved',
               resolvedAt: Date.now(),
               resolution: 'refund',
@@ -451,6 +462,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
         t.id === id
           ? {
               ...t,
+              snoozedUntil: undefined,
               status: 'resolved',
               resolvedAt: Date.now(),
               resolution: 'voucher',
@@ -770,5 +782,95 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
     }));
   },
 
-  hydrate: (tickets) => set({ tickets, selectedId: tickets[0]?.id ?? null }),
+  snoozeTicket: (id, until) => {
+    const now = Date.now();
+    if (!Number.isFinite(until) || until <= now) {
+      toast({
+        icon: '⚠',
+        title: 'Pick a future time',
+        description: 'Snooze must be set to a date and time in the future.',
+        tone: 'error',
+      });
+      return;
+    }
+    const ticket = get().tickets.find((t) => t.id === id);
+    if (!ticket || isTerminal(ticket)) {
+      toast({
+        icon: '⚠',
+        title: 'Cannot snooze',
+        description: 'Only open tickets can be snoozed.',
+        tone: 'error',
+      });
+      return;
+    }
+    set((s) => ({
+      tickets: s.tickets.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              snoozedUntil: until,
+              contactStatus: 'follow-up-scheduled',
+              notes: [
+                ...t.notes,
+                createSystemNote(
+                  `Snoozed until ${new Date(until).toLocaleString(undefined, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}.`,
+                  now,
+                ),
+              ],
+            }
+          : t,
+      ),
+    }));
+    toast({
+      icon: '⏰',
+      title: 'Ticket snoozed',
+      description: `${id} — hidden behind active tickets until then.`,
+      tone: 'success',
+    });
+  },
+
+  clearSnooze: (id) => {
+    const ticket = get().tickets.find((t) => t.id === id);
+    if (!ticket?.snoozedUntil) return;
+    const now = Date.now();
+    set((s) => ({
+      tickets: s.tickets.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              snoozedUntil: undefined,
+              notes: [
+                ...t.notes,
+                createSystemNote('Snooze cleared — ticket back in active triage.', now),
+              ],
+            }
+          : t,
+      ),
+    }));
+    toast({
+      icon: '⏰',
+      title: 'Snooze cleared',
+      description: id,
+      tone: 'success',
+    });
+  },
+
+  hydrate: (incoming) => {
+    const cloned = incoming.map((t) => ({
+      ...t,
+      messages: [...t.messages],
+      notes: [...t.notes],
+      issueAttachments: t.issueAttachments
+        ? t.issueAttachments.map((a) => ({ ...a }))
+        : undefined,
+    }));
+    const withAck = ensureClaimAcknowledgementMessages(cloned);
+    set({
+      tickets: withAck,
+      selectedId: withAck[0]?.id ?? null,
+    });
+  },
 }));

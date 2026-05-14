@@ -170,6 +170,8 @@ export interface Ticket {
   messages: TicketMessage[];
   notes: TicketMessage[];
   agent?: string;
+  /** When set and in the future, ticket is snoozed in the queue (solo follow-up). */
+  snoozedUntil?: number;
 }
 
 // ── Vouchers ─────────────────────────────────────────────────
