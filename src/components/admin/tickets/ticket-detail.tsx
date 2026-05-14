@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useTicketsStore } from '@/store/tickets';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import { Kbd } from './kbd';
 import { TicketComposer } from './ticket-composer';
 import {
   AlertTriangle,
+  ArrowRight,
   Bot,
   CheckCircle2,
   Clock3,
@@ -22,6 +24,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Sparkles,
+  Timer,
   UserRound,
 } from 'lucide-react';
 import type {
@@ -40,6 +43,12 @@ import {
 } from './ticket-action-dialogs';
 import { IssueAttachmentsPanel } from './issue-attachments-panel';
 import { TicketTimeline } from './ticket-timeline';
+import {
+  getRecommendation,
+  getRiskScore,
+  getSlaState,
+  type RecommendedAction,
+} from './ticket-filtering';
 
 const REQUEST_LABEL: Record<TicketRequestType, string> = {
   return: 'Return',
@@ -104,19 +113,9 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-function getDecisionCopy(ticket: Ticket) {
-  if (ticket.status === 'rejected') return 'Claim rejected';
-  if (ticket.status === 'resolved') return 'Ticket resolved';
-  if (ticket.status === 'replacement-issued') return 'Replacement is in queue';
-  if (ticket.status === 'escalated') return 'Senior support queue';
-  if (ticket.dupCheck.status === 'bad') return 'Review fraud signals first';
-  if (ticket.dupCheck.status === 'failed') return 'Marketplace check failed';
-  if (ticket.dupCheck.status === 'unknown')
-    return 'Run marketplace check first';
-  if (ticket.aiReport?.flags.length) return 'Needs manual verification';
-  if (ticket.requestType === 'replacement')
-    return 'Likely replacement approval';
-  return 'Review evidence and choose outcome';
+function scrollToId(id: string) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 export function TicketDetail() {
@@ -125,8 +124,12 @@ export function TicketDetail() {
     s.tickets.find((t) => t.id === s.selectedId),
   );
   const tickets = useTicketsStore((s) => s.tickets);
-  const { runDupCheck, updateAttachmentReview, updateEvidence } =
-    useTicketsStore();
+  const {
+    runDupCheck,
+    updateAttachmentReview,
+    updateEvidence,
+    issueReplacement,
+  } = useTicketsStore();
 
   if (!selectedId || !ticket) {
     const pendingCount = tickets.filter((t) => t.status === 'pending').length;
@@ -182,6 +185,50 @@ export function TicketDetail() {
       candidate.riskStatus === 'fraud' ||
       candidate.riskStatus === 'duplicate',
   );
+  const customerStats = useMemo(() => {
+    const prior = priorCustomerTickets;
+    const approved = prior.filter(
+      (t) => t.status === 'resolved' || t.status === 'replacement-issued',
+    ).length;
+    const approvalRate =
+      prior.length > 0 ? Math.round((approved / prior.length) * 100) : null;
+    const flagged = prior.filter(
+      (t) =>
+        t.riskStatus === 'fraud' ||
+        t.riskStatus === 'duplicate' ||
+        t.riskStatus === 'suspicious' ||
+        Boolean(t.aiReport?.flags.length),
+    ).length;
+    return {
+      priorCount: prior.length,
+      approvalRate,
+      flagged,
+    };
+  }, [priorCustomerTickets]);
+  const risk = getRiskScore(ticket);
+  const sla = getSlaState(ticket);
+  const recommendation = getRecommendation(ticket);
+  const handleRecommendedAction = (action: RecommendedAction) => {
+    switch (action) {
+      case 'approve-replacement':
+        issueReplacement(ticket.id);
+        return;
+      case 'run-dup-check':
+        void runDupCheck(ticket.id);
+        return;
+      case 'review-photos':
+        scrollToId(`ticket-photos-${ticket.id}`);
+        return;
+      case 'review-risk':
+        scrollToId(`ticket-verification-${ticket.id}`);
+        return;
+      case 'reject':
+        scrollToId(`ticket-actions-${ticket.id}`);
+        return;
+      default:
+        return;
+    }
+  };
   const hasRequiredPhotoGap =
     (ticket.issueType === 'damage' || ticket.issueType === 'color-change') &&
     (ticket.issueAttachments?.length ?? 0) === 0;
@@ -231,6 +278,23 @@ export function TicketDetail() {
                 </Badge>
                 <ResolutionChip ticket={ticket} />
                 {ticket.tag && <Badge variant="fraud">{ticket.tag}</Badge>}
+                {!resolved && (
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                      sla.tone === 'danger' &&
+                        'bg-destructive/15 text-destructive ring-1 ring-inset ring-destructive/30',
+                      sla.tone === 'warning' &&
+                        'bg-brand-gold/15 text-brand-gold ring-1 ring-inset ring-brand-gold/30',
+                      sla.tone === 'muted' &&
+                        'bg-muted text-muted-foreground ring-1 ring-inset ring-border',
+                    )}
+                    title={`Priority ${ticket.priority} · ${sla.targetHours}h target`}
+                  >
+                    <Timer size={11} />
+                    {sla.label}
+                  </span>
+                )}
               </div>
               <h1 className="mt-1.5 truncate text-2xl font-bold leading-tight">
                 {ticket.customer.name}
@@ -239,25 +303,59 @@ export function TicketDetail() {
                 {ticket.customer.phone}
                 {ticket.customer.email && ` · ${ticket.customer.email}`}
               </p>
+              <CustomerStatStrip
+                priorCount={customerStats.priorCount}
+                approvalRate={customerStats.approvalRate}
+                flagged={customerStats.flagged}
+              />
             </div>
           </div>
           <div
             className={cn(
-              'rounded-lg border bg-card px-4 py-3 text-right',
-              hasRisk && 'border-destructive/30 bg-destructive/5',
+              'flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5',
+              risk.level === 'high' && 'border-destructive/30 bg-destructive/5',
+              risk.level === 'medium' &&
+                'border-brand-gold/40 bg-brand-gold/5',
             )}
           >
-            <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              Recommended next step
-            </p>
-            <p
-              className={cn(
-                'mt-1 text-sm font-semibold',
-                hasRisk ? 'text-destructive' : 'text-foreground',
+            <RiskScoreRing score={risk.score} level={risk.level} />
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Recommended next step
+              </p>
+              {recommendation.action === 'none' ? (
+                <p className="mt-1 text-sm font-semibold text-muted-foreground">
+                  {recommendation.label}
+                </p>
+              ) : (
+                <Button
+                  size="sm"
+                  className="mt-1 h-8 gap-1.5"
+                  variant={
+                    recommendation.tone === 'danger'
+                      ? 'destructive'
+                      : recommendation.tone === 'muted'
+                        ? 'outline'
+                        : 'default'
+                  }
+                  onClick={() =>
+                    handleRecommendedAction(recommendation.action)
+                  }
+                >
+                  {recommendation.label}
+                  <ArrowRight size={14} />
+                </Button>
               )}
-            >
-              {getDecisionCopy(ticket)}
-            </p>
+              {risk.reasons.length > 0 && (
+                <p
+                  className="mt-1 max-w-[220px] truncate text-[11px] text-muted-foreground"
+                  title={risk.reasons.join(' · ')}
+                >
+                  {risk.reasons.slice(0, 2).join(' · ')}
+                  {risk.reasons.length > 2 && ` +${risk.reasons.length - 2}`}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -300,12 +398,14 @@ export function TicketDetail() {
 
             <CustomerIntakeCard ticket={ticket} />
 
-            <IssueAttachmentsPanel
-              attachments={ticket.issueAttachments}
-              onUpdate={(attachmentId, patch) =>
-                updateAttachmentReview(ticket.id, attachmentId, patch)
-              }
-            />
+            <div id={`ticket-photos-${ticket.id}`}>
+              <IssueAttachmentsPanel
+                attachments={ticket.issueAttachments}
+                onUpdate={(attachmentId, patch) =>
+                  updateAttachmentReview(ticket.id, attachmentId, patch)
+                }
+              />
+            </div>
 
             {ticket.aiReport && (
               <Card>

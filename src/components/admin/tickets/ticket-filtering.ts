@@ -214,5 +214,199 @@ export function getSlaState(ticket: Ticket, now = Date.now()) {
         : hoursRemaining <= 2
           ? 'warning'
           : 'muted',
+    hoursRemaining,
+    targetHours,
   } as const;
+}
+
+export type AgeBucket = 'fresh' | 'aging' | 'stale';
+
+export function getAgeBucket(
+  ticket: Ticket,
+  now = Date.now(),
+): { bucket: AgeBucket; label: string; hours: number } {
+  const hours = (now - ticket.createdAt) / (1000 * 60 * 60);
+  const label =
+    hours < 1
+      ? `${Math.max(1, Math.round(hours * 60))}m`
+      : hours < 24
+        ? `${Math.round(hours)}h`
+        : `${Math.round(hours / 24)}d`;
+  const bucket: AgeBucket = hours < 4 ? 'fresh' : hours < 24 ? 'aging' : 'stale';
+  return { bucket, label, hours };
+}
+
+/**
+ * Returns a 0–100 "review urgency" score from the signals already on the
+ * ticket. Higher = more attention required.
+ *
+ * Inputs:
+ *  - dupCheck status (bad / failed / unknown raises score)
+ *  - AI report flags (fraud / duplicate / suspicious weighted higher)
+ *  - riskStatus already set on the ticket
+ *  - priority
+ *  - missing issue photos for damage / color-change
+ */
+export function getRiskScore(ticket: Ticket): {
+  score: number;
+  level: 'low' | 'medium' | 'high';
+  reasons: string[];
+} {
+  let score = 0;
+  const reasons: string[] = [];
+
+  if (ticket.dupCheck.status === 'bad') {
+    score += 40;
+    reasons.push('Marketplace duplicate risk');
+  } else if (ticket.dupCheck.status === 'failed') {
+    score += 25;
+    reasons.push('Marketplace check failed');
+  } else if (ticket.dupCheck.status === 'unknown') {
+    score += 15;
+    reasons.push('Marketplace check not run');
+  }
+
+  const flags = ticket.aiReport?.flags ?? [];
+  if (flags.includes('fraud')) {
+    score += 35;
+    reasons.push('AI fraud flag');
+  }
+  if (flags.includes('duplicate')) {
+    score += 20;
+    reasons.push('AI duplicate flag');
+  }
+  if (flags.includes('suspicious')) {
+    score += 15;
+    reasons.push('AI suspicious flag');
+  }
+  if (flags.includes('photo-mismatch')) {
+    score += 15;
+    reasons.push('Photo mismatch flagged');
+  }
+  if (flags.includes('inconsistent-story')) {
+    score += 10;
+    reasons.push('Story inconsistent');
+  }
+  if (flags.includes('prior-claims')) {
+    score += 10;
+    reasons.push('Prior claims on record');
+  }
+
+  if (ticket.riskStatus === 'fraud') {
+    score += 25;
+    reasons.push('Marked fraud');
+  } else if (ticket.riskStatus === 'duplicate') {
+    score += 15;
+    reasons.push('Marked duplicate');
+  } else if (ticket.riskStatus === 'suspicious') {
+    score += 10;
+    reasons.push('Marked suspicious');
+  }
+
+  if (ticket.priority === 'urgent') {
+    score += 10;
+  } else if (ticket.priority === 'high') {
+    score += 5;
+  }
+
+  if (
+    (ticket.issueType === 'damage' || ticket.issueType === 'color-change') &&
+    (ticket.issueAttachments?.length ?? 0) === 0
+  ) {
+    score += 10;
+    reasons.push('No issue photos attached');
+  }
+
+  const pendingReviews =
+    ticket.issueAttachments?.filter((attachment) => !attachment.reviewed)
+      .length ?? 0;
+  if (pendingReviews > 0) {
+    score += Math.min(10, pendingReviews * 3);
+    reasons.push(`${pendingReviews} attachment review${pendingReviews === 1 ? '' : 's'} pending`);
+  }
+
+  const clamped = Math.max(0, Math.min(100, score));
+  const level: 'low' | 'medium' | 'high' =
+    clamped >= 60 ? 'high' : clamped >= 30 ? 'medium' : 'low';
+  return { score: clamped, level, reasons };
+}
+
+export type RecommendedAction =
+  | 'approve-replacement'
+  | 'run-dup-check'
+  | 'review-photos'
+  | 'review-risk'
+  | 'reject'
+  | 'none';
+
+export function getRecommendation(ticket: Ticket): {
+  action: RecommendedAction;
+  label: string;
+  tone: 'primary' | 'danger' | 'muted';
+} {
+  if (
+    ticket.status === 'resolved' ||
+    ticket.status === 'rejected' ||
+    ticket.status === 'replacement-issued'
+  ) {
+    return { action: 'none', label: 'Ticket closed', tone: 'muted' };
+  }
+  if (ticket.status === 'escalated') {
+    return {
+      action: 'review-risk',
+      label: 'Review escalation',
+      tone: 'danger',
+    };
+  }
+  if (ticket.dupCheck.status === 'bad' || ticket.riskStatus === 'fraud') {
+    return {
+      action: 'reject',
+      label: 'Reject — duplicate risk',
+      tone: 'danger',
+    };
+  }
+  if (ticket.dupCheck.status === 'unknown') {
+    return {
+      action: 'run-dup-check',
+      label: 'Run marketplace check',
+      tone: 'primary',
+    };
+  }
+  if (ticket.dupCheck.status === 'failed') {
+    return {
+      action: 'run-dup-check',
+      label: 'Retry marketplace check',
+      tone: 'danger',
+    };
+  }
+  const flags = ticket.aiReport?.flags ?? [];
+  if (flags.some((f) => ['fraud', 'duplicate', 'suspicious'].includes(f))) {
+    return {
+      action: 'review-risk',
+      label: 'Review fraud signals',
+      tone: 'danger',
+    };
+  }
+  if (
+    (ticket.issueType === 'damage' || ticket.issueType === 'color-change') &&
+    (ticket.issueAttachments?.length ?? 0) === 0
+  ) {
+    return {
+      action: 'review-photos',
+      label: 'Request issue photos',
+      tone: 'muted',
+    };
+  }
+  if (ticket.requestType === 'replacement') {
+    return {
+      action: 'approve-replacement',
+      label: 'Approve replacement',
+      tone: 'primary',
+    };
+  }
+  return {
+    action: 'review-risk',
+    label: 'Review evidence',
+    tone: 'muted',
+  };
 }

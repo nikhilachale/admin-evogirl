@@ -1,6 +1,6 @@
 import { useTicketsStore } from '@/store/tickets';
 import { Badge } from '@/components/ui/badge';
-import { cn, formatRelative } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import {
   AlertTriangle,
   Check,
@@ -15,6 +15,7 @@ import { BulkActionBar } from './bulk-action-bar';
 import { ResolutionChip } from './resolution-chip';
 import {
   applyVisibleTicketFilters,
+  getAgeBucket,
   getSlaState,
   hasActiveTicketFilters,
   normalizeTicketsFilters,
@@ -45,6 +46,29 @@ const MARKETPLACE_LABEL: Record<Ticket['order']['marketplace'], string> = {
   meesho: 'Meesho',
   myntra: 'Myntra',
   direct: 'Direct',
+};
+
+// Marketplace-brand colors so the queue is scannable at a glance.
+const MARKETPLACE_CLASS: Record<Ticket['order']['marketplace'], string> = {
+  amazon:
+    'bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-500/30',
+  flipkart:
+    'bg-sky-500/15 text-sky-300 ring-1 ring-inset ring-sky-500/30',
+  meesho:
+    'bg-pink-500/15 text-pink-300 ring-1 ring-inset ring-pink-500/30',
+  myntra:
+    'bg-rose-500/15 text-rose-300 ring-1 ring-inset ring-rose-500/30',
+  direct:
+    'bg-brand-purple/20 text-brand-purple-light ring-1 ring-inset ring-brand-purple/40',
+};
+
+const AGE_CLASS: Record<'fresh' | 'aging' | 'stale', string> = {
+  fresh:
+    'bg-success/15 text-success ring-1 ring-inset ring-success/30',
+  aging:
+    'bg-brand-gold/15 text-brand-gold ring-1 ring-inset ring-brand-gold/30',
+  stale:
+    'bg-destructive/15 text-destructive ring-1 ring-inset ring-destructive/30',
 };
 
 function getInitials(name: string) {
@@ -128,6 +152,7 @@ export function TicketsList() {
           const isChecked = selectedIds.has(t.id);
           const rail = getSeverityRail(t);
           const sla = getSlaState(t);
+          const age = getAgeBucket(t);
           const hasRisk =
             t.dupCheck.status === 'bad' ||
             t.dupCheck.status === 'failed' ||
@@ -234,14 +259,25 @@ export function TicketsList() {
                       )}
                       {DUP_LABEL[t.dupCheck.status]}
                     </span>
-                    <span className="inline-flex shrink-0 items-center gap-1 tabular-nums">
-                      <Clock3 size={13} />
-                      {formatRelative(t.createdAt)}
+                    <span
+                      className={cn(
+                        'inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider tabular-nums',
+                        AGE_CLASS[age.bucket],
+                      )}
+                      title={`Opened ${age.label} ago`}
+                    >
+                      <Clock3 size={11} />
+                      {age.label}
                     </span>
                   </div>
 
                   <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5">
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5',
+                        MARKETPLACE_CLASS[t.order.marketplace],
+                      )}
+                    >
                       <Headphones size={11} />
                       {MARKETPLACE_LABEL[t.order.marketplace]}
                     </span>
