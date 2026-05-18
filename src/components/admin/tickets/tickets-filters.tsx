@@ -6,11 +6,13 @@ import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Kbd } from './kbd';
 import { SavedViewsRow } from './saved-views';
 import { ShortcutCheatsheet } from './shortcut-cheatsheet';
+import { LogContactDialog } from './log-contact-dialog';
 import type {
   CustomerContactStatus,
   DupCheckStatus,
   Marketplace,
   Ticket,
+  TicketChannel,
   TicketIssueType,
   TicketRiskStatus,
   TicketStatus,
@@ -44,12 +46,22 @@ const PRIORITIES: { value: Ticket['priority'] | 'all'; label: string }[] = [
 ];
 
 const MARKETPLACES: { value: Marketplace | 'all'; label: string }[] = [
-  { value: 'all', label: 'All channels' },
+  { value: 'all', label: 'All marketplaces' },
   { value: 'amazon', label: 'Amazon' },
   { value: 'flipkart', label: 'Flipkart' },
   { value: 'meesho', label: 'Meesho' },
   { value: 'myntra', label: 'Myntra' },
   { value: 'direct', label: 'Direct' },
+];
+
+const CHANNELS: { value: TicketChannel | 'all'; label: string }[] = [
+  { value: 'all', label: 'All channels' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'email', label: 'Email' },
+  { value: 'chat', label: 'Chat' },
+  { value: 'web-form', label: 'Web form' },
+  { value: 'marketplace', label: 'Marketplace' },
+  { value: 'other', label: 'Other' },
 ];
 
 const RISK_STATUSES: { value: TicketRiskStatus | 'all'; label: string }[] = [
@@ -105,6 +117,7 @@ const EVIDENCE_FILTERS: { value: TicketsFilters['evidence']; label: string }[] =
 
 export function TicketsFilters() {
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
   const filters = useTicketsStore((s) => s.filters);
   const setFilter = useTicketsStore((s) => s.setFilter);
   const tickets = useTicketsStore((s) => s.tickets);
@@ -136,6 +149,7 @@ export function TicketsFilters() {
     filters.dupCheck !== 'all',
     filters.attachments !== 'all',
     filters.evidence !== 'all',
+    filters.channel !== 'all',
   ].filter(Boolean).length;
 
   return (
@@ -151,10 +165,11 @@ export function TicketsFilters() {
               <Kbd>k</Kbd>
               <span className="ml-0.5">to navigate</span>
             </span>
+            <LogContactDialog open={logOpen} onOpenChange={setLogOpen} />
             <ShortcutCheatsheet />
           </div>
         </div>
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid grid-cols-3 divide-x divide-border rounded-lg border bg-background/40">
           <QueueMetric label="Pending" value={pendingCount} tone="primary" />
           <QueueMetric label="Urgent" value={urgentCount} tone="danger" />
           <QueueMetric label="Risk" value={fraudCount} tone="warning" />
@@ -261,10 +276,16 @@ export function TicketsFilters() {
                 onChange={(value) => setFilter('priority', value)}
               />
               <FilterSelect
-                label="Channel"
+                label="Marketplace"
                 value={filters.marketplace}
                 options={MARKETPLACES}
                 onChange={(value) => setFilter('marketplace', value)}
+              />
+              <FilterSelect
+                label="Channel"
+                value={filters.channel}
+                options={CHANNELS}
+                onChange={(value) => setFilter('channel', value)}
               />
               <FilterSelect
                 label="Assignee"
@@ -355,14 +376,7 @@ function QueueMetric({
   tone: 'primary' | 'danger' | 'warning';
 }) {
   return (
-    <div
-      className={cn(
-        'rounded-md border bg-card px-3 py-2 transition-colors',
-        tone === 'primary' && 'border-primary/30 hover:border-primary/50',
-        tone === 'danger' && 'border-destructive/35 hover:border-destructive/55',
-        tone === 'warning' && 'border-brand-gold/35 hover:border-brand-gold/55',
-      )}
-    >
+    <div className="px-3 py-2.5 text-center">
       <p
         className={cn(
           'text-lg font-bold leading-none tabular-nums',

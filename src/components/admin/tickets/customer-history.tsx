@@ -1,6 +1,5 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { useTicketsStore } from '@/store/tickets';
-import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
@@ -8,143 +7,173 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { cn, formatRelative } from '@/lib/utils';
 import {
-  AlertTriangle,
-  CheckCircle2,
-  Clock3,
-  History,
-  ShieldAlert,
-  Sparkles,
-  UserRound,
-} from 'lucide-react';
-import type {
-  CustomerContactStatus,
-  Ticket,
-  TicketRiskStatus,
-} from '@/types/domain';
+  cn,
+  formatINR,
+  formatRelative,
+  normalizePhoneDigits,
+} from '@/lib/utils';
+import { CheckCircle2, ShieldAlert, UserRound } from 'lucide-react';
+import type { Order, Ticket } from '@/types/domain';
 
-const STATUS_LABEL: Record<Ticket['status'], string> = {
-  pending: 'Pending review',
-  resolved: 'Resolved',
-  rejected: 'Rejected',
-  'replacement-issued': 'Replacement issued',
-  escalated: 'Escalated',
+const MARKETPLACE_LABEL: Record<Order['marketplace'], string> = {
+  amazon: 'Amazon',
+  flipkart: 'Flipkart',
+  meesho: 'Meesho',
+  myntra: 'Myntra',
+  direct: 'Direct',
 };
 
-const STATUS_VARIANT: Record<
-  Ticket['status'],
-  'pending' | 'resolved' | 'rejected' | 'secondary'
-> = {
-  pending: 'pending',
-  resolved: 'resolved',
-  rejected: 'rejected',
-  'replacement-issued': 'secondary',
-  escalated: 'secondary',
+interface OrderHistoryEntry {
+  order: Order;
+  /** Claims/returns filed on this order, newest first. */
+  claims: Ticket[];
+}
+
+type OutcomeTone = 'success' | 'danger' | 'muted';
+
+const OUTCOME_CLASS: Record<OutcomeTone, string> = {
+  success: 'text-success',
+  danger: 'text-destructive',
+  muted: 'text-muted-foreground',
 };
 
-const CONTACT_LABEL: Record<CustomerContactStatus, string> = {
-  'customer-notified': 'Customer notified',
-  'awaiting-customer-reply': 'Awaiting reply',
-  'reply-received': 'Reply received',
-  'no-response': 'No response',
-  'follow-up-scheduled': 'Follow-up scheduled',
-};
-
-const RISK_LABEL: Record<TicketRiskStatus, string> = {
-  normal: 'Normal',
-  suspicious: 'Suspicious',
-  fraud: 'Fraud',
-  duplicate: 'Duplicate',
-};
+/** Human "what happened to this claim" summary from status + resolution. */
+function claimOutcome(t: Ticket): { label: string; tone: OutcomeTone } {
+  if (t.resolution === 'refund')
+    return {
+      label: `Refunded ${formatINR(t.resolutionAmount ?? t.order.amount)}`,
+      tone: 'success',
+    };
+  if (t.resolution === 'voucher')
+    return {
+      label: `Voucher ${formatINR(t.resolutionAmount ?? 0)}`,
+      tone: 'success',
+    };
+  if (t.resolution === 'replacement' || t.status === 'replacement-issued')
+    return { label: 'Replaced', tone: 'success' };
+  if (t.resolution === 'rejection' || t.status === 'rejected')
+    return { label: 'Rejected', tone: 'danger' };
+  const kind =
+    t.requestType === 'return'
+      ? 'Return'
+      : t.requestType === 'refund'
+        ? 'Refund'
+        : t.requestType === 'replacement'
+          ? 'Replacement'
+          : 'Review';
+  return {
+    label: `${kind} ${t.status === 'escalated' ? 'escalated' : 'pending'}`,
+    tone: 'muted',
+  };
+}
 
 interface CustomerHistoryProps {
   ticket: Ticket;
 }
 
 /**
- * "Customer history" aside card — surfaces prior tickets for the same
- * customer so the agent can see whether they're looking at a first-time
- * claimant or a repeat case. Reads from the in-memory tickets array
- * (no backend) and lets the agent jump to any prior ticket.
+ * "Account risk" aside card — the customer's order & claim history across
+ * every retailer (matched by id / phone / email), plus a compact risk read.
+ * Reads from the in-memory tickets array (no backend).
  */
 export function CustomerHistory({ ticket }: CustomerHistoryProps) {
   const allTickets = useTicketsStore((s) => s.tickets);
   const select = useTicketsStore((s) => s.select);
 
   const {
-    prior,
+    priorCount,
     approvalRate,
-    rejectedCount,
     flaggedCount,
-    unresolvedCount,
     lastTicketAt,
+    orderHistory,
+    summary,
   } = useMemo(() => {
-    const priorTickets = allTickets
-      .filter((t) => t.customer.id === ticket.customer.id && t.id !== ticket.id)
+    // Same shopper even across retailers / manually-logged contacts (which
+    // mint a fresh customer.id): match on id OR phone OR email.
+    const phone = normalizePhoneDigits(ticket.customer.phone);
+    const email = ticket.customer.email?.trim().toLowerCase();
+    const sameCustomer = (t: Ticket) =>
+      t.customer.id === ticket.customer.id ||
+      (phone && normalizePhoneDigits(t.customer.phone) === phone) ||
+      (Boolean(email) && t.customer.email?.trim().toLowerCase() === email);
+
+    const customerTickets = allTickets
+      .filter(sameCustomer)
       .sort((a, b) => b.createdAt - a.createdAt);
+    const priorTickets = customerTickets.filter((t) => t.id !== ticket.id);
 
-    if (priorTickets.length === 0) {
-      return {
-        prior: priorTickets,
-        approvalRate: 0,
-        rejectedCount: 0,
-        flaggedCount: 0,
-        unresolvedCount: 0,
-        lastTicketAt: null,
-      };
+    // One row per order (across every retailer), newest claim first.
+    const byOrder = new Map<string, OrderHistoryEntry>();
+    for (const t of customerTickets) {
+      const entry = byOrder.get(t.order.id);
+      if (entry) entry.claims.push(t);
+      else byOrder.set(t.order.id, { order: t.order, claims: [t] });
     }
+    const history = Array.from(byOrder.values()).sort(
+      (a, b) => b.claims[0].createdAt - a.claims[0].createdAt,
+    );
 
+    const retailers = new Set(history.map((h) => h.order.marketplace));
     const approved = priorTickets.filter(
       (t) => t.status === 'resolved' || t.status === 'replacement-issued',
     ).length;
-    const rejected = priorTickets.filter((t) => t.status === 'rejected').length;
     const flagged = priorTickets.filter(
-      (t) =>
-        t.riskStatus === 'fraud' ||
-        t.riskStatus === 'duplicate' ||
-        t.riskStatus === 'suspicious' ||
-        Boolean(t.aiReport?.flags.length),
-    ).length;
-    const unresolved = priorTickets.filter(
-      (t) => t.status === 'pending' || t.status === 'escalated',
+      (t) => t.riskStatus !== 'normal' || Boolean(t.aiReport?.flags.length),
     ).length;
 
     return {
-      prior: priorTickets,
-      approvalRate: Math.round((approved / priorTickets.length) * 100),
-      rejectedCount: rejected,
+      priorCount: priorTickets.length,
+      approvalRate:
+        priorTickets.length === 0
+          ? null
+          : Math.round((approved / priorTickets.length) * 100),
       flaggedCount: flagged,
-      unresolvedCount: unresolved,
       lastTicketAt: priorTickets[0]?.createdAt ?? null,
+      orderHistory: history,
+      summary: {
+        orderCount: history.length,
+        retailerCount: retailers.size,
+        claimCount: customerTickets.length,
+        repeatOrderClaims: history.filter((h) => h.claims.length > 1).length,
+      },
     };
-  }, [allTickets, ticket.customer.id, ticket.id]);
+  }, [
+    allTickets,
+    ticket.customer.id,
+    ticket.customer.phone,
+    ticket.customer.email,
+    ticket.id,
+  ]);
 
   const accountRisk =
     ticket.riskStatus !== 'normal' ||
     flaggedCount > 0 ||
-    rejectedCount > 0 ||
+    summary.repeatOrderClaims > 0 ||
     ticket.dupCheck.status === 'bad';
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <UserRound size={14} className="text-muted-foreground" />
               Account risk
             </CardTitle>
             <CardDescription>
-              Customer status and prior tickets for {ticket.customer.name}.
+              {ticket.customer.name} · {summary.orderCount} order
+              {summary.orderCount === 1 ? '' : 's'} across{' '}
+              {summary.retailerCount} retailer
+              {summary.retailerCount === 1 ? '' : 's'}
             </CardDescription>
           </div>
           <span
             className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wider',
+              'inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider',
               accountRisk
-                ? 'border-destructive/40 bg-destructive/10 text-destructive'
-                : 'border-success/40 bg-success/10 text-success',
+                ? 'bg-destructive/10 text-destructive'
+                : 'bg-success/10 text-success',
             )}
           >
             {accountRisk ? (
@@ -156,175 +185,122 @@ export function CustomerHistory({ ticket }: CustomerHistoryProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3 pb-4">
-        <div className="grid grid-cols-2 gap-2">
-          <StatusPreview
-            icon={<Clock3 size={14} />}
-            label="Contact"
-            value={CONTACT_LABEL[ticket.contactStatus]}
+
+      <CardContent className="space-y-4 pb-4">
+        {/* One quiet metric strip instead of stacked boxes. */}
+        <div className="grid grid-cols-3 divide-x divide-border rounded-lg border bg-background/40">
+          <Metric label="Prior claims" value={String(priorCount)} />
+          <Metric
+            label="Approval"
+            value={approvalRate === null ? '—' : `${approvalRate}%`}
             tone={
-              ticket.contactStatus === 'reply-received'
-                ? 'success'
-                : ticket.contactStatus === 'no-response'
-                  ? 'danger'
-                  : 'muted'
+              approvalRate !== null && approvalRate < 30 ? 'danger' : undefined
             }
           />
-          <StatusPreview
-            icon={<AlertTriangle size={14} />}
-            label="Current risk"
-            value={RISK_LABEL[ticket.riskStatus]}
-            tone={ticket.riskStatus === 'normal' ? 'success' : 'danger'}
+          <Metric
+            label="Risk signals"
+            value={String(flaggedCount)}
+            tone={flaggedCount > 0 ? 'danger' : undefined}
           />
         </div>
 
-        {prior.length === 0 ? (
-          <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success/5 p-2.5 text-sm">
-            <Sparkles size={16} className="text-success" />
-            <span>First-time claimant</span>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-md border bg-background/50 p-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Prior
-                </p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums">
-                  {prior.length}
-                </p>
-              </div>
-              <div className="rounded-md border bg-background/50 p-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Approval rate
-                </p>
-                <p
-                  className={cn(
-                    'mt-0.5 text-lg font-bold tabular-nums',
-                    approvalRate >= 60 && 'text-success',
-                    approvalRate < 30 && 'text-destructive',
-                  )}
-                >
-                  {approvalRate}%
-                </p>
-              </div>
-              <div className="rounded-md border bg-background/50 p-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Flagged
-                </p>
-                <p
-                  className={cn(
-                    'mt-0.5 text-lg font-bold tabular-nums',
-                    flaggedCount > 0 && 'text-destructive',
-                  )}
-                >
-                  {flaggedCount}
-                </p>
-              </div>
-              <div className="rounded-md border bg-background/50 p-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Open
-                </p>
-                <p
-                  className={cn(
-                    'mt-0.5 text-lg font-bold tabular-nums',
-                    unresolvedCount > 0 && 'text-brand-gold',
-                  )}
-                >
-                  {unresolvedCount}
-                </p>
-              </div>
-            </div>
+        <p className="text-xs text-muted-foreground">
+          {priorCount === 0
+            ? 'First-time claimant.'
+            : `Last claim ${
+                lastTicketAt ? formatRelative(lastTicketAt) : 'unknown'
+              }.`}
+          {summary.repeatOrderClaims > 0 && (
+            <span className="font-semibold text-destructive">
+              {' '}
+              {summary.repeatOrderClaims} order
+              {summary.repeatOrderClaims === 1 ? '' : 's'} with repeat claims.
+            </span>
+          )}
+        </p>
 
-            <div
-              className={cn(
-                'flex items-start gap-2 rounded-md border p-2.5 text-xs',
-                accountRisk
-                  ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                  : 'border-border bg-background/50 text-muted-foreground',
-              )}
-            >
-              <History size={14} className="mt-0.5 shrink-0" />
-              <p>
-                Last prior ticket{' '}
-                {lastTicketAt ? formatRelative(lastTicketAt) : 'not found'}.
-                {rejectedCount > 0 &&
-                  ` ${rejectedCount} prior rejection${rejectedCount === 1 ? '' : 's'}.`}
-                {flaggedCount > 0 &&
-                  ` ${flaggedCount} prior risk signal${flaggedCount === 1 ? '' : 's'}.`}
-              </p>
-            </div>
-
-            <ul className="space-y-1.5">
-              {prior.slice(0, 3).map((t) => (
-                <li key={t.id}>
+        <div>
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Order &amp; claim history
+          </p>
+          <ul className="max-h-72 divide-y divide-border/60 overflow-y-auto rounded-lg border">
+            {orderHistory.map(({ order, claims }) => {
+              const latest = claims[0];
+              const outcome = claimOutcome(latest);
+              const isCurrent = claims.some((c) => c.id === ticket.id);
+              return (
+                <li key={order.id}>
                   <button
                     type="button"
-                    onClick={() => select(t.id)}
+                    onClick={() => select(latest.id)}
                     className={cn(
-                      'flex w-full items-center justify-between gap-2 rounded-md border bg-background/50 px-2.5 py-2 text-left transition-colors',
-                      'hover:border-primary/40 hover:bg-card',
+                      'flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/40',
+                      isCurrent &&
+                        'border-l-2 border-l-primary bg-primary/[0.04]',
                     )}
                   >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="font-mono text-[11px] text-muted-foreground">
-                        {t.id}
-                      </span>
-                      <Badge
-                        variant={STATUS_VARIANT[t.status]}
-                        className="shrink-0 text-[10px]"
-                      >
-                        {STATUS_LABEL[t.status]}
-                      </Badge>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium">
+                        {order.product}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {MARKETPLACE_LABEL[order.marketplace]} ·{' '}
+                        {formatINR(order.amount)} ·{' '}
+                        {formatRelative(order.purchasedAt)}
+                        {claims.length > 1 && (
+                          <span className="text-destructive">
+                            {' '}
+                            · {claims.length} claims
+                          </span>
+                        )}
+                      </p>
                     </div>
-                    <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                      {formatRelative(t.createdAt)}
+                    <span
+                      className={cn(
+                        'shrink-0 text-[11px] font-semibold',
+                        OUTCOME_CLASS[outcome.tone],
+                      )}
+                    >
+                      {outcome.label}
                     </span>
                   </button>
                 </li>
-              ))}
-            </ul>
+              );
+            })}
+          </ul>
+        </div>
 
-            {prior.length > 3 && (
-              <p className="text-center text-[11px] text-muted-foreground">
-                +{prior.length - 3} more prior ticket
-                {prior.length - 3 === 1 ? '' : 's'}
-              </p>
-            )}
-          </>
-        )}
+        <p className="text-[10px] leading-relaxed text-muted-foreground/60">
+          Orders with a claim on file. Full purchase history needs the
+          marketplace backend.
+        </p>
       </CardContent>
     </Card>
   );
 }
 
-interface StatusPreviewProps {
-  icon: ReactNode;
+function Metric({
+  label,
+  value,
+  tone,
+}: {
   label: string;
   value: string;
-  tone: 'success' | 'danger' | 'muted';
-}
-
-function StatusPreview({ icon, label, value, tone }: StatusPreviewProps) {
+  tone?: 'danger';
+}) {
   return (
-    <div
-      className={cn(
-        'rounded-md border bg-background/50 p-2.5',
-        tone === 'success' && 'border-success/30 bg-success/5',
-        tone === 'danger' && 'border-destructive/30 bg-destructive/10',
-      )}
-    >
-      <div
+    <div className="px-3 py-2.5 text-center">
+      <p
         className={cn(
-          'flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground',
-          tone === 'success' && 'text-success',
+          'text-lg font-bold tabular-nums leading-none',
           tone === 'danger' && 'text-destructive',
         )}
       >
-        {icon}
+        {value}
+      </p>
+      <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
-      </div>
-      <p className="mt-1 text-sm font-semibold leading-tight">{value}</p>
+      </p>
     </div>
   );
 }

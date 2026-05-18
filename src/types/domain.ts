@@ -15,6 +15,36 @@ export type Marketplace =
   | 'myntra'
   | 'direct';
 
+// HOW the contact reached support (Zendesk-style intake channel).
+// Distinct from order.marketplace, which is WHERE the order was placed.
+export type TicketChannel =
+  | 'phone'
+  | 'email'
+  | 'chat'
+  | 'web-form'
+  | 'marketplace'
+  | 'other';
+
+// Outcome of the "track down the order" step for manually-logged contacts
+// where the customer had no order id.
+export type OrderLookupStatus =
+  | 'not-attempted'
+  | 'matched'
+  | 'manual'
+  | 'unresolved';
+
+// Captured only on tickets created via the manual "log a contact" flow —
+// the audit trail of how an agent raised the ticket on the customer's behalf.
+export interface TicketIntake {
+  channel: TicketChannel;
+  loggedBy: string; // agent username
+  loggedAt: number; // epoch ms
+  rawContact?: string; // free-text contact the agent entered (audit)
+  productUrl?: string; // product link given when no order id
+  lookupStatus: OrderLookupStatus;
+  matchedOrderId?: string;
+}
+
 // Records WHICH resolution path closed a ticket. Set by the store actions
 // (issueReplacement / issueRefund / issueVoucher / reject / approve) so
 // analytics and the UI can distinguish "Refunded ₹2,499" from "Replaced".
@@ -172,6 +202,10 @@ export interface Ticket {
   agent?: string;
   /** When set and in the future, ticket is snoozed in the queue (solo follow-up). */
   snoozedUntil?: number;
+  /** Intake channel. Optional — legacy/seed tickets have none. */
+  channel?: TicketChannel;
+  /** Set only for tickets created via the manual "log a contact" flow. */
+  intake?: TicketIntake;
 }
 
 // ── Vouchers ─────────────────────────────────────────────────

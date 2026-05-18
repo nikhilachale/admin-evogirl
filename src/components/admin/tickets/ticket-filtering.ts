@@ -36,6 +36,7 @@ export const DEFAULT_TICKET_FILTERS: TicketsFilters = {
   dupCheck: 'all',
   attachments: 'all',
   evidence: 'all',
+  channel: 'all',
 };
 
 export function normalizeTicketsFilters(
@@ -102,6 +103,7 @@ export function matchesTicketSearch(ticket: Ticket, query: string): boolean {
     ticket.order.sku,
     ticket.order.product,
     ticket.order.marketplace,
+    ticket.channel,
     ticket.status,
     ticket.issueType,
     ticket.requestType,
@@ -151,6 +153,11 @@ export function applyFieldFilters(
     if (
       normalized.marketplace !== 'all' &&
       ticket.order.marketplace !== normalized.marketplace
+    )
+      return false;
+    if (
+      normalized.channel !== 'all' &&
+      ticket.channel !== normalized.channel
     )
       return false;
     if (

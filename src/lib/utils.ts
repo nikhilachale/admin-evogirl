@@ -15,6 +15,16 @@ export function formatINR(amount: number): string {
   }).format(amount);
 }
 
+/**
+ * Strip a phone number down to its significant trailing digits so masked /
+ * differently-formatted numbers for the same person still compare equal
+ * (e.g. "+91 98XXX-XX138" → "9198138"). Returns '' if too short to trust.
+ */
+export function normalizePhoneDigits(phone: string | undefined): string {
+  const digits = (phone ?? '').replace(/\D/g, '');
+  return digits.length >= 6 ? digits.slice(-10) : '';
+}
+
 /** Format a unix timestamp as "2 mins ago" / "3 hours ago" / etc. */
 export function formatRelative(timestamp: number): string {
   const diff = Date.now() - timestamp;

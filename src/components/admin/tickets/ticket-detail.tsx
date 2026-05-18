@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 import { useTicketsStore } from '@/store/tickets';
-import type { ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -13,73 +11,17 @@ import {
 import { cn, formatINR, formatRelative } from '@/lib/utils';
 import { Kbd } from './kbd';
 import { TicketComposer } from './ticket-composer';
-import {
-  AlertTriangle,
-  ArrowRight,
-  Bell,
-  Bot,
-  CheckCircle2,
-  Clock3,
-  Inbox,
-  PackageCheck,
-  RefreshCw,
-  ShieldCheck,
-  Sparkles,
-  Timer,
-  UserRound,
-} from 'lucide-react';
-import type {
-  AiReportFlag,
-  ClaimEvidenceChecklist,
-  CustomerContactStatus,
-  Ticket,
-  TicketRequestType,
-} from '@/types/domain';
+import { Bell, CheckCircle2, Inbox, Sparkles, Timer } from 'lucide-react';
+import type { AiReportFlag, Ticket } from '@/types/domain';
 import { ResolutionChip } from './resolution-chip';
 import { CustomerHistory } from './customer-history';
-import { CustomerIntakeCard } from './customer-intake-card';
 import {
   TicketClosedActions,
   TicketOpenActions,
 } from './ticket-action-dialogs';
 import { IssueAttachmentsPanel } from './issue-attachments-panel';
 import { TicketTimeline } from './ticket-timeline';
-import { SnoozeCard } from './snooze-card';
-import {
-  getRecommendation,
-  getRiskScore,
-  getSlaState,
-  isSnoozeActive,
-  type RecommendedAction,
-} from './ticket-filtering';
-
-const REQUEST_LABEL: Record<TicketRequestType, string> = {
-  return: 'Return',
-  replacement: 'Replacement',
-  'review-check': 'Review check',
-  refund: 'Refund',
-};
-
-const CONTACT_LABEL: Record<CustomerContactStatus, string> = {
-  'customer-notified': 'Customer notified',
-  'awaiting-customer-reply': 'Awaiting customer reply',
-  'reply-received': 'Reply received',
-  'no-response': 'No response',
-  'follow-up-scheduled': 'Follow-up scheduled',
-};
-
-const EVIDENCE_LABEL: Record<keyof ClaimEvidenceChecklist, string> = {
-  orderVerified: 'Order verified',
-  deliveryVerified: 'Delivery verified',
-  photosReviewed: 'Photos reviewed',
-  duplicateCheckPassed: 'Duplicate check passed',
-  aiReportReviewed: 'AI report reviewed',
-  customerHistoryReviewed: 'Customer history reviewed',
-};
-
-const EVIDENCE_KEYS = Object.keys(
-  EVIDENCE_LABEL,
-) as (keyof ClaimEvidenceChecklist)[];
+import { getSlaState, isSnoozeActive } from './ticket-filtering';
 
 const FLAG_LABEL: Record<AiReportFlag, string> = {
   suspicious: 'Suspicious',
@@ -116,23 +58,15 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-function scrollToId(id: string) {
-  const el = document.getElementById(id);
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 export function TicketDetail() {
   const selectedId = useTicketsStore((s) => s.selectedId);
   const ticket = useTicketsStore((s) =>
     s.tickets.find((t) => t.id === s.selectedId),
   );
   const tickets = useTicketsStore((s) => s.tickets);
-  const {
-    runDupCheck,
-    updateAttachmentReview,
-    updateEvidence,
-    issueReplacement,
-  } = useTicketsStore();
+  const updateAttachmentReview = useTicketsStore(
+    (s) => s.updateAttachmentReview,
+  );
 
   const priorCustomerTickets = useMemo(() => {
     if (!ticket) return [] as Ticket[];
@@ -142,27 +76,6 @@ export function TicketDetail() {
         candidate.id !== ticket.id,
     );
   }, [tickets, ticket]);
-
-  const customerStats = useMemo(() => {
-    const prior = priorCustomerTickets;
-    const approved = prior.filter(
-      (t) => t.status === 'resolved' || t.status === 'replacement-issued',
-    ).length;
-    const approvalRate =
-      prior.length > 0 ? Math.round((approved / prior.length) * 100) : null;
-    const flagged = prior.filter(
-      (t) =>
-        t.riskStatus === 'fraud' ||
-        t.riskStatus === 'duplicate' ||
-        t.riskStatus === 'suspicious' ||
-        Boolean(t.aiReport?.flags.length),
-    ).length;
-    return {
-      priorCount: prior.length,
-      approvalRate,
-      flagged,
-    };
-  }, [priorCustomerTickets]);
 
   if (!selectedId || !ticket) {
     const pendingCount = tickets.filter((t) => t.status === 'pending').length;
@@ -213,30 +126,7 @@ export function TicketDetail() {
       candidate.riskStatus === 'fraud' ||
       candidate.riskStatus === 'duplicate',
   );
-  const risk = getRiskScore(ticket);
   const sla = getSlaState(ticket);
-  const recommendation = getRecommendation(ticket);
-  const handleRecommendedAction = (action: RecommendedAction) => {
-    switch (action) {
-      case 'approve-replacement':
-        issueReplacement(ticket.id);
-        return;
-      case 'run-dup-check':
-        void runDupCheck(ticket.id);
-        return;
-      case 'review-photos':
-        scrollToId(`ticket-photos-${ticket.id}`);
-        return;
-      case 'review-risk':
-        scrollToId(`ticket-verification-${ticket.id}`);
-        return;
-      case 'reject':
-        scrollToId(`ticket-actions-${ticket.id}`);
-        return;
-      default:
-        return;
-    }
-  };
   const hasRequiredPhotoGap =
     (ticket.issueType === 'damage' || ticket.issueType === 'color-change') &&
     (ticket.issueAttachments?.length ?? 0) === 0;
@@ -292,6 +182,11 @@ export function TicketDetail() {
                 )}
                 <ResolutionChip ticket={ticket} />
                 {ticket.tag && <Badge variant="fraud">{ticket.tag}</Badge>}
+                {ticket.channel && (
+                  <Badge variant="secondary" className="capitalize">
+                    {ticket.channel.replace('-', ' ')}
+                  </Badge>
+                )}
                 {!resolved && (
                   <span
                     className={cn(
@@ -317,56 +212,11 @@ export function TicketDetail() {
                 {ticket.customer.phone}
                 {ticket.customer.email && ` · ${ticket.customer.email}`}
               </p>
-              <CustomerStatStrip
-                priorCount={customerStats.priorCount}
-                approvalRate={customerStats.approvalRate}
-                flagged={customerStats.flagged}
-              />
-            </div>
-          </div>
-          <div
-            className={cn(
-              'flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5',
-              risk.level === 'high' && 'border-destructive/30 bg-destructive/5',
-              risk.level === 'medium' &&
-                'border-brand-gold/40 bg-brand-gold/5',
-            )}
-          >
-            <RiskScoreRing score={risk.score} level={risk.level} />
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Recommended next step
-              </p>
-              {recommendation.action === 'none' ? (
-                <p className="mt-1 text-sm font-semibold text-muted-foreground">
-                  {recommendation.label}
-                </p>
-              ) : (
-                <Button
-                  size="sm"
-                  className="mt-1 h-8 gap-1.5"
-                  variant={
-                    recommendation.tone === 'danger'
-                      ? 'destructive'
-                      : recommendation.tone === 'muted'
-                        ? 'outline'
-                        : 'default'
-                  }
-                  onClick={() =>
-                    handleRecommendedAction(recommendation.action)
-                  }
-                >
-                  {recommendation.label}
-                  <ArrowRight size={14} />
-                </Button>
-              )}
-              {risk.reasons.length > 0 && (
-                <p
-                  className="mt-1 max-w-[220px] truncate text-[11px] text-muted-foreground"
-                  title={risk.reasons.join(' · ')}
-                >
-                  {risk.reasons.slice(0, 2).join(' · ')}
-                  {risk.reasons.length > 2 && ` +${risk.reasons.length - 2}`}
+              {ticket.intake && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Logged by {ticket.intake.loggedBy} via {ticket.intake.channel}
+                  {ticket.intake.lookupStatus === 'unresolved' &&
+                    ' · order unresolved'}
                 </p>
               )}
             </div>
@@ -375,10 +225,10 @@ export function TicketDetail() {
       </header>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid gap-4 xl:grid-cols-1">
           <div className="space-y-4">
             <Card>
-              <CardHeader className="pb-3">
+              <CardHeader className="border-b pb-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -401,18 +251,36 @@ export function TicketDetail() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="pb-4">
-                <OrderTimeline
-                  purchasedAt={ticket.order.purchasedAt}
-                  deliveredAt={ticket.order.deliveredAt}
-                  claimAt={ticket.createdAt}
-                />
+              <CardContent className="pb-0 pt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <OrderTimeline
+                    purchasedAt={ticket.order.purchasedAt}
+                    deliveredAt={ticket.order.deliveredAt}
+                    claimAt={ticket.createdAt}
+                  />
+                  <div className="border-l pb-4 pl-4">
+                    <div className="mb-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Request Type
+                      </p>
+                      <p className="truncate text-sm font-medium capitalize">
+                        {ticket.requestType} ·{' '}
+                        {ticket.issueType.replace('-', ' ')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Customer Note
+                      </p>
+                      <p className="text-sm leading-relaxed text-foreground">
+                        {ticket.messages.find((m) => m.from === 'customer')
+                          ?.text ?? 'No customer note was submitted.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
-
-            <CustomerIntakeCard ticket={ticket} />
-
-            <SnoozeCard ticket={ticket} />
 
             <div id={`ticket-photos-${ticket.id}`}>
               <IssueAttachmentsPanel
@@ -465,6 +333,8 @@ export function TicketDetail() {
               </Card>
             )}
 
+            <CustomerHistory ticket={ticket} />
+
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Timeline</CardTitle>
@@ -479,194 +349,6 @@ export function TicketDetail() {
               </CardContent>
             </Card>
           </div>
-
-          <aside className="space-y-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Verification</CardTitle>
-                <CardDescription>
-                  Marketplace and AI risk signals for this claim.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 pb-4">
-                <div
-                  className={cn(
-                    'rounded-lg border p-3',
-                    ticket.dupCheck.status === 'bad' &&
-                      'border-destructive/40 bg-destructive/10',
-                    ticket.dupCheck.status === 'failed' &&
-                      'border-destructive/40 bg-destructive/10',
-                    ticket.dupCheck.status === 'ok' &&
-                      'border-success/40 bg-success/10',
-                  )}
-                >
-                  <div className="flex items-start gap-2.5">
-                    <span
-                      className={cn(
-                        'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
-                        ticket.dupCheck.status === 'ok' &&
-                          'bg-success/20 text-success',
-                        ticket.dupCheck.status === 'bad' &&
-                          'bg-destructive/20 text-destructive',
-                        ticket.dupCheck.status === 'failed' &&
-                          'bg-destructive/20 text-destructive',
-                        (ticket.dupCheck.status === 'unknown' ||
-                          ticket.dupCheck.status === 'checking') &&
-                          'bg-brand-gold/20 text-brand-gold',
-                      )}
-                    >
-                      {ticket.dupCheck.status === 'ok' ? (
-                        <ShieldCheck size={15} />
-                      ) : (
-                        <AlertTriangle size={15} />
-                      )}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="font-semibold">
-                        {DUP_LABEL[ticket.dupCheck.status]}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Last checked {ticket.dupCheck.checked}
-                      </p>
-                      {ticket.dupCheck.details && (
-                        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                          {ticket.dupCheck.details}
-                        </p>
-                      )}
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                        <MetricPill
-                          label="Prior claims"
-                          value={String(ticket.dupCheck.priorClaims ?? 0)}
-                        />
-                        <MetricPill
-                          label="Severity"
-                          value={ticket.dupCheck.severity ?? 'unknown'}
-                        />
-                        <MetricPill
-                          label="Confidence"
-                          value={
-                            typeof ticket.dupCheck.confidence === 'number'
-                              ? `${Math.round(ticket.dupCheck.confidence * 100)}%`
-                              : 'N/A'
-                          }
-                        />
-                        <MetricPill
-                          label="SKU matches"
-                          value={String(ticket.dupCheck.matchSignals?.sku ?? 0)}
-                        />
-                      </div>
-                      {ticket.dupCheck.matchingOrderIds &&
-                        ticket.dupCheck.matchingOrderIds.length > 0 && (
-                          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                            Matching orders:{' '}
-                            <span className="font-mono">
-                              {ticket.dupCheck.matchingOrderIds.join(', ')}
-                            </span>
-                          </p>
-                        )}
-                    </div>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => void runDupCheck(ticket.id)}
-                  disabled={ticket.dupCheck.status === 'checking'}
-                >
-                  <RefreshCw
-                    size={16}
-                    className={cn(
-                      'mr-2',
-                      ticket.dupCheck.status === 'checking' && 'animate-spin',
-                    )}
-                  />
-                  Re-run marketplace check
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Claim summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pb-4 text-sm">
-                <SummaryItem
-                  icon={<UserRound size={15} />}
-                  label="Customer"
-                  value={ticket.customer.id}
-                />
-                <SummaryItem
-                  icon={<PackageCheck size={15} />}
-                  label="Request"
-                  value={REQUEST_LABEL[ticket.requestType]}
-                />
-                <SummaryItem
-                  icon={<AlertTriangle size={15} />}
-                  label="Risk"
-                  value={ticket.riskStatus}
-                />
-                <SummaryItem
-                  icon={<Clock3 size={15} />}
-                  label="Contact"
-                  value={CONTACT_LABEL[ticket.contactStatus]}
-                />
-                {ticket.snoozedUntil != null && (
-                  <SummaryItem
-                    icon={<Bell size={15} />}
-                    label="Snooze"
-                    value={
-                      isSnoozeActive(ticket)
-                        ? `Until ${formatRelative(ticket.snoozedUntil)}`
-                        : `Was ${formatRelative(ticket.snoozedUntil)}`
-                    }
-                  />
-                )}
-                <SummaryItem
-                  icon={<Bot size={15} />}
-                  label="AI confidence"
-                  value={
-                    typeof ticket.aiReport?.confidence === 'number'
-                      ? `${Math.round(ticket.aiReport.confidence * 100)}%`
-                      : 'Not available'
-                  }
-                />
-                <SummaryItem
-                  icon={<Clock3 size={15} />}
-                  label="Opened"
-                  value={formatRelative(ticket.createdAt)}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Evidence checklist</CardTitle>
-                <CardDescription>
-                  Required verification before a clean approval.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2 pb-4">
-                {EVIDENCE_KEYS.map((key) => (
-                  <label
-                    key={key}
-                    className="flex cursor-pointer items-center justify-between gap-3 rounded-md border bg-background/50 px-3 py-2 text-sm transition-colors hover:bg-muted/50"
-                  >
-                    <span className="font-medium">{EVIDENCE_LABEL[key]}</span>
-                    <input
-                      type="checkbox"
-                      checked={ticket.evidence[key]}
-                      onChange={(event) =>
-                        updateEvidence(ticket.id, key, event.target.checked)
-                      }
-                      className="h-4 w-4 accent-primary"
-                    />
-                  </label>
-                ))}
-              </CardContent>
-            </Card>
-
-            <CustomerHistory ticket={ticket} />
-          </aside>
         </div>
       </div>
 
@@ -679,103 +361,6 @@ export function TicketDetail() {
       ) : (
         <TicketClosedActions key={ticket.id} ticket={ticket} />
       )}
-    </div>
-  );
-}
-
-function CustomerStatStrip({
-  priorCount,
-  approvalRate,
-  flagged,
-}: {
-  priorCount: number;
-  approvalRate: number | null;
-  flagged: number;
-}) {
-  if (priorCount === 0) {
-    return (
-      <p className="mt-2 text-xs text-muted-foreground">
-        First ticket from this customer in the queue.
-      </p>
-    );
-  }
-  return (
-    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-      <span>
-        <span className="font-semibold text-foreground">{priorCount}</span> prior
-        ticket{priorCount === 1 ? '' : 's'}
-      </span>
-      {approvalRate !== null && (
-        <span>
-          <span className="font-semibold text-foreground">{approvalRate}%</span>{' '}
-          clean resolution (prior)
-        </span>
-      )}
-      {flagged > 0 ? (
-        <span className="text-destructive">
-          <span className="font-semibold">{flagged}</span> with risk flags
-        </span>
-      ) : (
-        <span className="text-muted-foreground">No prior risk flags</span>
-      )}
-    </div>
-  );
-}
-
-function RiskScoreRing({
-  score,
-  level,
-}: {
-  score: number;
-  level: 'low' | 'medium' | 'high';
-}) {
-  const size = 52;
-  const stroke = 4;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const offset = c - (score / 100) * c;
-  const strokeClass =
-    level === 'high'
-      ? 'stroke-destructive'
-      : level === 'medium'
-        ? 'stroke-brand-gold'
-        : 'stroke-success';
-
-  return (
-    <div
-      className="relative h-[52px] w-[52px] shrink-0"
-      role="img"
-      aria-label={`Risk score ${score} out of 100, ${level} risk`}
-    >
-      <svg
-        width={size}
-        height={size}
-        className="-rotate-90"
-        aria-hidden="true"
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          className="stroke-muted/40"
-          strokeWidth={stroke}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          className={cn(strokeClass, 'transition-[stroke-dashoffset]')}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={offset}
-        />
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold tabular-nums text-foreground">
-        {score}
-      </span>
     </div>
   );
 }
@@ -843,41 +428,6 @@ function OrderTimeline({
           </li>
         ))}
       </ol>
-    </div>
-  );
-}
-
-function SummaryItem({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-        {icon}
-      </span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
-        <p className="truncate font-medium">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function MetricPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border bg-background/50 px-2 py-1.5">
-      <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-0.5 font-semibold capitalize text-foreground">{value}</p>
     </div>
   );
 }

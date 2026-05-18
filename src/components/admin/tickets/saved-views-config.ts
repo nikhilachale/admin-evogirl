@@ -159,6 +159,10 @@ function normalizeFiltersShape(value: unknown): TicketsFilters | null {
         typeof v.evidence === 'string'
           ? (v.evidence as TicketsFilters['evidence'])
           : 'all',
+      channel:
+        typeof v.channel === 'string'
+          ? (v.channel as TicketsFilters['channel'])
+          : 'all',
     };
   }
   return null;

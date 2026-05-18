@@ -1,6 +1,14 @@
 import type { Ticket } from '@/types/domain';
 
+// Topical placeholder imagery for customer-uploaded proof.
+// loremflickr returns a real photo matching the tags (wigs / extensions /
+// hair accessories); `?lock` keeps the same photo across reloads so the
+// review state stays stable. Swap for real CDN assets when the backend lands.
+const hairImg = (lock: number, tags = 'wig,hairstyle') =>
+  `https://loremflickr.com/480/480/${tags}?lock=${lock}`;
+
 export const MOCK_TICKETS: Ticket[] = [
+  // ── Clean, legit replacement claim — happy path ───────────────
   {
     id: 'TKT-2401',
     customer: {
@@ -33,7 +41,8 @@ export const MOCK_TICKETS: Ticket[] = [
     },
     aiReport: {
       flags: [],
-      summary: 'Photos show genuine lace tear at temple. Story consistent with damage during transit. Customer has no prior claims.',
+      summary:
+        'Photos show genuine lace tear at temple. Story consistent with damage during transit. Customer has no prior claims.',
       confidence: 0.92,
       generatedAt: Date.now() - 1000 * 60 * 89,
     },
@@ -41,19 +50,19 @@ export const MOCK_TICKETS: Ticket[] = [
       {
         id: 'att-2401-a',
         type: 'image',
-        url: 'https://picsum.photos/seed/tkt2401-a/320/320',
+        url: hairImg(2401, 'lacewig,hair'),
         reviewed: true,
       },
       {
         id: 'att-2401-b',
         type: 'image',
-        url: 'https://picsum.photos/seed/tkt2401-b/320/320',
+        url: hairImg(2402, 'wig,closeup'),
         reviewed: true,
       },
       {
         id: 'att-2401-c',
         type: 'image',
-        url: 'https://picsum.photos/seed/tkt2401-c/320/320',
+        url: hairImg(2403, 'hairpiece'),
         reviewed: false,
       },
     ],
@@ -84,6 +93,8 @@ export const MOCK_TICKETS: Ticket[] = [
     ],
     notes: [],
   },
+
+  // ── Color-change claim, packing error confirmed by agent note ──
   {
     id: 'TKT-2402',
     customer: {
@@ -114,7 +125,8 @@ export const MOCK_TICKETS: Ticket[] = [
     },
     aiReport: {
       flags: [],
-      summary: 'Color mismatch claim. Order receipt confirms jet black SKU; warehouse cross-check from agent note matches. Legitimate packing error.',
+      summary:
+        'Color mismatch claim. Order receipt confirms jet black SKU; warehouse cross-check from agent note matches. Legitimate packing error.',
       confidence: 0.88,
       generatedAt: Date.now() - 1000 * 60 * 60 * 3,
     },
@@ -122,13 +134,13 @@ export const MOCK_TICKETS: Ticket[] = [
       {
         id: 'att-2402-a',
         type: 'image',
-        url: 'https://picsum.photos/seed/tkt2402-a/320/320',
+        url: hairImg(2404, 'hairextensions'),
         reviewed: true,
       },
       {
         id: 'att-2402-b',
         type: 'image',
-        url: 'https://picsum.photos/seed/tkt2402-b/320/320',
+        url: hairImg(2405, 'clipinhair'),
         reviewed: true,
       },
     ],
@@ -160,6 +172,8 @@ export const MOCK_TICKETS: Ticket[] = [
       },
     ],
   },
+
+  // ── Fraud pattern: duplicate claims, reused photos, dupCheck BAD ─
   {
     id: 'TKT-2403',
     customer: {
@@ -190,7 +204,8 @@ export const MOCK_TICKETS: Ticket[] = [
     },
     aiReport: {
       flags: ['suspicious', 'duplicate', 'prior-claims'],
-      summary: 'Pattern matches three other "damage on arrival" claims on the same SKU this month, all from accounts opened in the last 60 days. Photos appear to be reused — reverse image search returned a match with TKT-2389.',
+      summary:
+        'Pattern matches three other "damage on arrival" claims on the same SKU this month, all from accounts opened in the last 60 days. Photos appear to be reused — reverse image search returned a match with TKT-2389.',
       confidence: 0.94,
       generatedAt: Date.now() - 1000 * 60 * 60 * 23,
     },
@@ -198,7 +213,7 @@ export const MOCK_TICKETS: Ticket[] = [
       {
         id: 'att-2403-a',
         type: 'image',
-        url: 'https://picsum.photos/seed/tkt2403-a/320/320',
+        url: hairImg(2406, 'curlywig,hair'),
         reviewed: true,
         suspicious: true,
         reason: 'Looks reused from prior claim.',
@@ -207,7 +222,7 @@ export const MOCK_TICKETS: Ticket[] = [
       {
         id: 'att-2403-b',
         type: 'image',
-        url: 'https://picsum.photos/seed/tkt2403-b/320/320',
+        url: hairImg(2407, 'wig,packaging'),
         reviewed: true,
         suspicious: true,
         reason: 'Packaging does not match order SKU.',
@@ -238,6 +253,8 @@ export const MOCK_TICKETS: Ticket[] = [
     ],
     notes: [],
   },
+
+  // ── Review-check auto-ticket, resolved by auto voucher release ──
   {
     id: 'TKT-2398',
     customer: {
@@ -269,13 +286,16 @@ export const MOCK_TICKETS: Ticket[] = [
     // Auto-created from a review submission — no customer conversation.
     aiReport: {
       flags: [],
-      summary: 'Amazon review verified live (4★, posted 2 days ago). Voucher released automatically.',
+      summary:
+        'Amazon review verified live (4★, posted 2 days ago). Voucher released automatically.',
       confidence: 0.99,
       generatedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
     },
     priority: 'low',
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
     resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
+    resolution: 'voucher',
+    resolutionAmount: 300,
     dupCheck: {
       status: 'ok',
       checked: '2 days ago',
@@ -286,6 +306,921 @@ export const MOCK_TICKETS: Ticket[] = [
       severity: 'low',
     },
     messages: [],
+    notes: [],
+  },
+
+  // ── Replacement already issued — direct-store order, agent owned ─
+  {
+    id: 'TKT-2405',
+    customer: {
+      id: 'CUS-3310',
+      name: 'Sneha Iyer',
+      phone: '+91 81XXX-XX310',
+      email: 'sneha.iyer@example.com',
+    },
+    order: {
+      id: 'EVO-DIR-100245',
+      marketplace: 'direct',
+      product: 'evogirl Halo Hair Extension — 20" Chestnut',
+      sku: 'EXT-HALO-20-CH',
+      amount: 6799,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 9,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 4,
+    },
+    status: 'replacement-issued',
+    requestType: 'replacement',
+    issueType: 'defect',
+    riskStatus: 'normal',
+    contactStatus: 'customer-notified',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: true,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    aiReport: {
+      flags: [],
+      summary:
+        'Weft stitching defect visible in close-up. Manufacturing fault, not customer damage. Approved for replacement.',
+      confidence: 0.9,
+      generatedAt: Date.now() - 1000 * 60 * 60 * 30,
+    },
+    issueAttachments: [
+      {
+        id: 'att-2405-a',
+        type: 'image',
+        url: hairImg(2408, 'haloextension,hair'),
+        reviewed: true,
+      },
+      {
+        id: 'att-2405-b',
+        type: 'image',
+        url: hairImg(2409, 'hairweft'),
+        reviewed: true,
+      },
+    ],
+    priority: 'normal',
+    createdAt: Date.now() - 1000 * 60 * 60 * 32,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 6,
+    resolution: 'replacement',
+    agent: 'Maya Verma',
+    dupCheck: {
+      status: 'ok',
+      checked: '1 day ago',
+      priorClaims: 0,
+      matchingOrderIds: [],
+      matchSignals: { phone: 0, email: 0, sku: 0 },
+      confidence: 0.97,
+      severity: 'low',
+    },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'The weft is coming apart after one wear. Pictures attached.',
+        at: Date.now() - 1000 * 60 * 60 * 32,
+      },
+      {
+        id: 'm2',
+        from: 'agent',
+        text: 'Confirmed defect. A replacement halo has been dispatched today.',
+        at: Date.now() - 1000 * 60 * 60 * 6,
+      },
+      {
+        id: 'm3',
+        from: 'system',
+        text: 'Replacement order EVO-DIR-100612 created and notified to customer.',
+        at: Date.now() - 1000 * 60 * 60 * 6,
+      },
+    ],
+    notes: [
+      {
+        id: 'n1',
+        from: 'agent',
+        text: 'QA batch B-2208 has 2 other weft complaints — flagged to manufacturing.',
+        at: Date.now() - 1000 * 60 * 60 * 5,
+      },
+    ],
+  },
+
+  // ── Rejected refund: wrong-item, suspicious, no customer response ─
+  {
+    id: 'TKT-2406',
+    customer: {
+      id: 'CUS-7782',
+      name: 'Divya Nair',
+      phone: '+91 73XXX-XX782',
+    },
+    order: {
+      id: 'FK-IN-561904',
+      marketplace: 'flipkart',
+      product: 'evogirl Silk Scrunchie Set (Pack of 6)',
+      sku: 'ACC-SCR-06',
+      amount: 799,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 28,
+    },
+    status: 'rejected',
+    requestType: 'refund',
+    issueType: 'wrong-item',
+    riskStatus: 'suspicious',
+    contactStatus: 'no-response',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: false,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    aiReport: {
+      flags: ['suspicious'],
+      summary:
+        'Customer claims a wig was ordered but invoice and marketplace record both show a scrunchie set. No supporting photo of a wig provided. Two follow-ups unanswered.',
+      confidence: 0.86,
+      generatedAt: Date.now() - 1000 * 60 * 60 * 24 * 4,
+    },
+    issueAttachments: [
+      {
+        id: 'att-2406-a',
+        type: 'image',
+        url: hairImg(2410, 'scrunchie,hair'),
+        reviewed: true,
+        imageMismatch: true,
+        reason: 'Photo shows scrunchies — does not support a wig claim.',
+      },
+    ],
+    priority: 'high',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 6,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 1,
+    resolution: 'rejection',
+    agent: 'Maya Verma',
+    dupCheck: {
+      status: 'unknown',
+      checked: '6 days ago',
+      details: 'Marketplace returned no record to compare against.',
+      priorClaims: 0,
+      matchingOrderIds: [],
+      matchSignals: {},
+      confidence: 0.4,
+      severity: 'medium',
+    },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'This is not the wig I ordered, I want my money back.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 6,
+      },
+      {
+        id: 'm2',
+        from: 'agent',
+        text: 'Your order record shows a scrunchie set, not a wig. Could you share the order screenshot?',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 5,
+      },
+    ],
+    notes: [
+      {
+        id: 'n1',
+        from: 'agent',
+        text: 'Rejected — insufficient proof, claim contradicts invoice. Reason: photo-mismatch.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 1,
+      },
+    ],
+  },
+
+  // ── Escalated: fraud risk, dupCheck FAILED (marketplace API down) ─
+  {
+    id: 'TKT-2407',
+    customer: {
+      id: 'CUS-4456',
+      name: 'Karishma Bhatt',
+      phone: '+91 96XXX-XX456',
+      email: 'k.bhatt@example.com',
+    },
+    order: {
+      id: 'AMZ-IN-902551',
+      marketplace: 'amazon',
+      product: 'evogirl Lace Front Wig — 24" Deep Wave',
+      sku: 'WIG-LF-24-DW',
+      amount: 9999,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 12,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 8,
+    },
+    status: 'escalated',
+    requestType: 'return',
+    issueType: 'damage',
+    riskStatus: 'fraud',
+    contactStatus: 'follow-up-scheduled',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: false,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    aiReport: {
+      flags: ['fraud', 'inconsistent-story'],
+      summary:
+        'Damage described as "arrived burnt" but photos show heat-styling damage consistent with post-delivery use. Story changed between first and second message. High-value SKU. Recommend escalation.',
+      confidence: 0.95,
+      generatedAt: Date.now() - 1000 * 60 * 60 * 20,
+    },
+    issueAttachments: [
+      {
+        id: 'att-2407-a',
+        type: 'image',
+        url: hairImg(2411, 'burnthair,wig'),
+        reviewed: true,
+        suspicious: true,
+        reason: 'Damage looks like heat styling, not transit.',
+      },
+      {
+        id: 'att-2407-b',
+        type: 'image',
+        url: hairImg(2412, 'deepwavewig'),
+        reviewed: false,
+      },
+    ],
+    tag: 'ESCALATED',
+    tagCls: 'fraud',
+    priority: 'urgent',
+    createdAt: Date.now() - 1000 * 60 * 60 * 22,
+    agent: 'Rohit Sengupta',
+    dupCheck: {
+      status: 'failed',
+      checked: '10 mins ago',
+      details: 'Amazon claims API timed out — retry scheduled.',
+      severity: 'high',
+    },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'The wig arrived completely burnt, this is unacceptable.',
+        at: Date.now() - 1000 * 60 * 60 * 22,
+      },
+      {
+        id: 'm2',
+        from: 'customer',
+        text: 'Actually it started melting after I used my straightener once.',
+        at: Date.now() - 1000 * 60 * 60 * 19,
+      },
+      {
+        id: 'm3',
+        from: 'system',
+        text: 'Escalated to fraud review — story inconsistency detected.',
+        at: Date.now() - 1000 * 60 * 60 * 18,
+      },
+    ],
+    notes: [
+      {
+        id: 'n1',
+        from: 'agent',
+        text: 'Escalated to L2. Follow-up call scheduled for tomorrow 11:00.',
+        at: Date.now() - 1000 * 60 * 60 * 17,
+      },
+    ],
+  },
+
+  // ── Snoozed pending: dupCheck in-progress, video proof attached ──
+  {
+    id: 'TKT-2408',
+    customer: {
+      id: 'CUS-6620',
+      name: 'Tara D’Souza',
+      phone: '+91 84XXX-XX620',
+    },
+    order: {
+      id: 'MEE-IN-101337',
+      marketplace: 'meesho',
+      product: 'evogirl Wig Wash & Care Kit',
+      sku: 'CARE-KIT-02',
+      amount: 1199,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 7,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
+    },
+    status: 'pending',
+    requestType: 'refund',
+    issueType: 'defect',
+    riskStatus: 'normal',
+    contactStatus: 'reply-received',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: false,
+      duplicateCheckPassed: false,
+      aiReportReviewed: false,
+      customerHistoryReviewed: true,
+    },
+    aiReport: {
+      flags: [],
+      summary:
+        'Customer reports the serum pump is jammed. Short video shows the defect clearly. Awaiting marketplace duplicate check before refund.',
+      confidence: 0.83,
+      generatedAt: Date.now() - 1000 * 60 * 60 * 5,
+    },
+    issueAttachments: [
+      {
+        id: 'att-2408-a',
+        type: 'video',
+        url: 'https://example.com/proof/tkt2408-pump.mp4',
+        reviewed: false,
+      },
+      {
+        id: 'att-2408-b',
+        type: 'image',
+        url: hairImg(2413, 'haircare,serum'),
+        reviewed: false,
+      },
+    ],
+    priority: 'normal',
+    createdAt: Date.now() - 1000 * 60 * 60 * 6,
+    // Snoozed ~20h out — waiting on customer to send the order box video.
+    snoozedUntil: Date.now() + 1000 * 60 * 60 * 20,
+    dupCheck: {
+      status: 'checking',
+      checked: 'just now',
+      details: 'Polling Meesho for prior claims on this order…',
+    },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'The serum pump won’t press down at all. Sharing a video.',
+        at: Date.now() - 1000 * 60 * 60 * 6,
+        attachments: [
+          {
+            type: 'video',
+            url: 'https://example.com/proof/tkt2408-pump.mp4',
+          },
+        ],
+      },
+      {
+        id: 'm2',
+        from: 'agent',
+        text: 'Thanks — could you also send a photo of the batch label on the box?',
+        at: Date.now() - 1000 * 60 * 60 * 4,
+      },
+    ],
+    notes: [
+      {
+        id: 'n1',
+        from: 'agent',
+        text: 'Snoozed 20h pending batch label photo + dup-check result.',
+        at: Date.now() - 1000 * 60 * 60 * 4,
+      },
+    ],
+  },
+
+  // ── Resolved by refund with amount on the resolution chip ───────
+  {
+    id: 'TKT-2409',
+    customer: {
+      id: 'CUS-1190',
+      name: 'Meghna Rao',
+      phone: '+91 91XXX-XX190',
+      email: 'meghna.rao@example.com',
+    },
+    order: {
+      id: 'AMZ-IN-889003',
+      marketplace: 'amazon',
+      product: 'evogirl Ponytail Extension — 16" Natural Black',
+      sku: 'EXT-PT-16-NB',
+      amount: 2499,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 18,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 14,
+    },
+    status: 'resolved',
+    requestType: 'return',
+    issueType: 'damage',
+    riskStatus: 'normal',
+    contactStatus: 'customer-notified',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: true,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    aiReport: {
+      flags: [],
+      summary:
+        'Clip mechanism snapped out of the box. Genuine manufacturing fault, customer preferred a refund over replacement.',
+      confidence: 0.93,
+      generatedAt: Date.now() - 1000 * 60 * 60 * 24 * 4,
+    },
+    issueAttachments: [
+      {
+        id: 'att-2409-a',
+        type: 'image',
+        url: hairImg(2414, 'ponytailextension,hair'),
+        reviewed: true,
+      },
+    ],
+    priority: 'low',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 5,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
+    resolution: 'refund',
+    resolutionAmount: 2499,
+    agent: 'Rohit Sengupta',
+    dupCheck: {
+      status: 'ok',
+      checked: '5 days ago',
+      priorClaims: 0,
+      matchingOrderIds: [],
+      matchSignals: { phone: 0, email: 0, sku: 0 },
+      confidence: 0.98,
+      severity: 'low',
+    },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'The clip snapped the first time I opened it. I’d prefer a refund.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 5,
+      },
+      {
+        id: 'm2',
+        from: 'system',
+        text: 'Refund of ₹2,499 processed to original payment method.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 3,
+      },
+    ],
+    notes: [],
+  },
+
+  // ── Photo mismatch on review (not full fraud) — AI photo-mismatch ─
+  {
+    id: 'TKT-2410',
+    customer: {
+      id: 'CUS-5503',
+      name: 'Ishita Ghosh',
+      phone: '+91 77XXX-XX503',
+    },
+    order: {
+      id: 'MYN-IN-447781',
+      marketplace: 'myntra',
+      product: 'evogirl Satin Headband + Clip Set',
+      sku: 'ACC-HB-SET-03',
+      amount: 999,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 10,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 6,
+    },
+    status: 'pending',
+    requestType: 'replacement',
+    issueType: 'color-change',
+    riskStatus: 'normal',
+    contactStatus: 'awaiting-customer-reply',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: true,
+      aiReportReviewed: true,
+      customerHistoryReviewed: false,
+    },
+    aiReport: {
+      flags: ['photo-mismatch'],
+      summary:
+        'Customer says the headband colour faded. One uploaded photo shows a different product (clip set) — likely an upload error. Asked customer to re-upload the headband photo.',
+      confidence: 0.78,
+      generatedAt: Date.now() - 1000 * 60 * 60 * 9,
+    },
+    issueAttachments: [
+      {
+        id: 'att-2410-a',
+        type: 'image',
+        url: hairImg(2415, 'satinheadband,hair'),
+        reviewed: true,
+      },
+      {
+        id: 'att-2410-b',
+        type: 'image',
+        url: hairImg(2416, 'hairclip,accessory'),
+        reviewed: true,
+        imageMismatch: true,
+        reason: 'Shows the clip set, not the faded headband.',
+      },
+    ],
+    priority: 'normal',
+    createdAt: Date.now() - 1000 * 60 * 60 * 10,
+    dupCheck: {
+      status: 'ok',
+      checked: '3 hours ago',
+      priorClaims: 0,
+      matchingOrderIds: [],
+      matchSignals: { phone: 0, sku: 0 },
+      confidence: 0.9,
+      severity: 'low',
+    },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'The headband colour faded after one wash, want a replacement.',
+        at: Date.now() - 1000 * 60 * 60 * 10,
+      },
+      {
+        id: 'm2',
+        from: 'agent',
+        text: 'One of your photos shows the clip set. Could you re-upload a photo of the faded headband?',
+        at: Date.now() - 1000 * 60 * 60 * 8,
+      },
+    ],
+    notes: [],
+  },
+
+  // ── Linked history: Anika Sharma (CUS-1138) — same shopper across
+  //    every retailer, so the Account risk → Order & claim history
+  //    section has real cross-retailer data, returns/refunds and a
+  //    repeat-claim order (abuse signal). Matched by id/phone/email. ──
+  {
+    id: 'TKT-2310',
+    customer: {
+      id: 'CUS-1138',
+      name: 'Anika Sharma',
+      phone: '+91 98XXX-XX138',
+      email: 'anika.s@example.com',
+    },
+    order: {
+      id: 'FK-IN-660124',
+      marketplace: 'flipkart',
+      product: 'evogirl Clip-In Extensions — 18" Jet Black',
+      sku: 'EXT-CI-18-JB',
+      amount: 3299,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 48,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 45,
+    },
+    status: 'resolved',
+    requestType: 'return',
+    issueType: 'wrong-item',
+    riskStatus: 'normal',
+    contactStatus: 'customer-notified',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: true,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    priority: 'normal',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 44,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 42,
+    resolution: 'refund',
+    resolutionAmount: 3299,
+    dupCheck: { status: 'ok', checked: 'earlier', priorClaims: 0 },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'Received the wrong shade. Returning for a refund.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 44,
+      },
+    ],
+    notes: [],
+  },
+  {
+    id: 'TKT-2288',
+    customer: {
+      id: 'CUS-1138',
+      name: 'Anika Sharma',
+      phone: '+91 98XXX-XX138',
+      email: 'anika.s@example.com',
+    },
+    order: {
+      id: 'MEE-IN-330917',
+      marketplace: 'meesho',
+      product: 'evogirl Wig — 16" Curly',
+      sku: 'WIG-16-CRL',
+      amount: 5799,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 70,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 66,
+    },
+    status: 'replacement-issued',
+    requestType: 'replacement',
+    issueType: 'defect',
+    riskStatus: 'normal',
+    contactStatus: 'customer-notified',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: true,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    priority: 'normal',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 65,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 63,
+    resolution: 'replacement',
+    dupCheck: { status: 'ok', checked: 'earlier', priorClaims: 1 },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'Curl pattern fell out after first wash.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 65,
+      },
+    ],
+    notes: [],
+  },
+  {
+    id: 'TKT-2255',
+    customer: {
+      id: 'CUS-1138',
+      name: 'Anika Sharma',
+      phone: '+91 98XXX-XX138',
+      email: 'anika.s@example.com',
+    },
+    order: {
+      id: 'MYN-IN-512288',
+      marketplace: 'myntra',
+      product: 'evogirl Hair Care Bundle',
+      sku: 'CARE-BNDL-01',
+      amount: 1899,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 96,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 92,
+    },
+    status: 'rejected',
+    requestType: 'refund',
+    issueType: 'other',
+    riskStatus: 'suspicious',
+    contactStatus: 'customer-notified',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: false,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    priority: 'normal',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 90,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 88,
+    resolution: 'rejection',
+    dupCheck: {
+      status: 'bad',
+      checked: 'earlier',
+      priorClaims: 2,
+      severity: 'medium',
+    },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'Bundle did not work for me, want a refund.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 90,
+      },
+    ],
+    notes: [],
+  },
+  {
+    id: 'TKT-2230',
+    customer: {
+      id: 'CUS-1138',
+      name: 'Anika Sharma',
+      phone: '+91 98XXX-XX138',
+      email: 'anika.s@example.com',
+    },
+    order: {
+      id: 'DIR-IN-100455',
+      marketplace: 'direct',
+      product: 'evogirl Silk Scrunchie Set (Pack of 6)',
+      sku: 'ACC-SCR-6',
+      amount: 999,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 120,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 117,
+    },
+    status: 'resolved',
+    requestType: 'replacement',
+    issueType: 'damage',
+    riskStatus: 'normal',
+    contactStatus: 'customer-notified',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: true,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    priority: 'low',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 115,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 113,
+    resolution: 'replacement',
+    dupCheck: { status: 'ok', checked: 'earlier', priorClaims: 0 },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'Two scrunchies arrived with loose stitching.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 115,
+      },
+    ],
+    notes: [],
+  },
+  // Repeat claims on the SAME order → "N× claims" abuse badge + risk.
+  {
+    id: 'TKT-2118',
+    customer: {
+      id: 'CUS-1138',
+      name: 'Anika Sharma',
+      phone: '+91 98XXX-XX138',
+      email: 'anika.s@example.com',
+    },
+    order: {
+      id: 'AMZ-IN-771203',
+      marketplace: 'amazon',
+      product: 'evogirl Lace Front Wig — 24" Deep Wave',
+      sku: 'WIG-LF-24-DW',
+      amount: 9299,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 160,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 156,
+    },
+    status: 'resolved',
+    requestType: 'refund',
+    issueType: 'damage',
+    riskStatus: 'normal',
+    contactStatus: 'customer-notified',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: true,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    priority: 'normal',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 155,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 153,
+    resolution: 'refund',
+    resolutionAmount: 9299,
+    dupCheck: { status: 'ok', checked: 'earlier', priorClaims: 0 },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'Wig arrived damaged, requesting a refund.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 155,
+      },
+    ],
+    notes: [],
+  },
+  {
+    id: 'TKT-2120',
+    customer: {
+      id: 'CUS-1138',
+      name: 'Anika Sharma',
+      phone: '+91 98XXX-XX138',
+      email: 'anika.s@example.com',
+    },
+    order: {
+      id: 'AMZ-IN-771203',
+      marketplace: 'amazon',
+      product: 'evogirl Lace Front Wig — 24" Deep Wave',
+      sku: 'WIG-LF-24-DW',
+      amount: 9299,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 160,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 156,
+    },
+    status: 'rejected',
+    requestType: 'replacement',
+    issueType: 'damage',
+    riskStatus: 'duplicate',
+    contactStatus: 'customer-notified',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: false,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    aiReport: {
+      flags: ['duplicate', 'prior-claims'],
+      summary:
+        'Second claim on an order already refunded in full (TKT-2118). Treat as duplicate.',
+      confidence: 0.88,
+      generatedAt: Date.now() - 1000 * 60 * 60 * 24 * 40,
+    },
+    priority: 'high',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 40,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 39,
+    resolution: 'rejection',
+    dupCheck: {
+      status: 'bad',
+      checked: 'earlier',
+      priorClaims: 1,
+      matchingOrderIds: ['AMZ-IN-771203'],
+      severity: 'high',
+    },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'The replacement also has issues, please send another.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 40,
+      },
+    ],
+    notes: [],
+  },
+
+  // ── Linked history: Sneha Iyer (CUS-3310) — cross-retailer, matched
+  //    by email/phone even though her current ticket is `direct`. ──
+  {
+    id: 'TKT-2360',
+    customer: {
+      id: 'CUS-3310',
+      name: 'Sneha Iyer',
+      phone: '+91 81XXX-XX310',
+      email: 'sneha.iyer@example.com',
+    },
+    order: {
+      id: 'AMZ-IN-889003',
+      marketplace: 'amazon',
+      product: 'evogirl Ponytail Extension — 16" Natural Black',
+      sku: 'EXT-PT-16-NB',
+      amount: 2499,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 38,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 35,
+    },
+    status: 'resolved',
+    requestType: 'return',
+    issueType: 'color-change',
+    riskStatus: 'normal',
+    contactStatus: 'customer-notified',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: true,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    priority: 'normal',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 34,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 32,
+    resolution: 'refund',
+    resolutionAmount: 2499,
+    dupCheck: { status: 'ok', checked: 'earlier', priorClaims: 0 },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'Shade looked different in person, returning it.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 34,
+      },
+    ],
+    notes: [],
+  },
+  {
+    id: 'TKT-2344',
+    customer: {
+      id: 'CUS-3310',
+      name: 'Sneha Iyer',
+      phone: '+91 81XXX-XX310',
+      email: 'sneha.iyer@example.com',
+    },
+    order: {
+      id: 'FK-IN-720918',
+      marketplace: 'flipkart',
+      product: 'evogirl Halo Hair Extension — 20" Chestnut',
+      sku: 'EXT-HALO-20-CH',
+      amount: 4599,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 58,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 54,
+    },
+    status: 'replacement-issued',
+    requestType: 'replacement',
+    issueType: 'defect',
+    riskStatus: 'normal',
+    contactStatus: 'customer-notified',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: true,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    priority: 'normal',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 53,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 51,
+    resolution: 'replacement',
+    dupCheck: { status: 'ok', checked: 'earlier', priorClaims: 0 },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'Halo wire snapped within a week.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 53,
+      },
+    ],
     notes: [],
   },
 ];

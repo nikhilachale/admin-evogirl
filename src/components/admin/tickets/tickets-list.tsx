@@ -2,16 +2,7 @@ import { useMemo } from 'react';
 import { useTicketsStore } from '@/store/tickets';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import {
-  AlertTriangle,
-  Bell,
-  Check,
-  CheckCircle2,
-  Clock3,
-  Headphones,
-  ShieldAlert,
-  UserRound,
-} from 'lucide-react';
+import { Check, CheckCircle2 } from 'lucide-react';
 import type { Ticket } from '@/types/domain';
 import { BulkActionBar } from './bulk-action-bar';
 import { ResolutionChip } from './resolution-chip';
@@ -36,14 +27,6 @@ const STATUS_VARIANT: Record<
   escalated: 'secondary',
 };
 
-const DUP_LABEL: Record<Ticket['dupCheck']['status'], string> = {
-  ok: 'Verified',
-  bad: 'Duplicate risk',
-  unknown: 'Unchecked',
-  checking: 'Checking',
-  failed: 'Check failed',
-};
-
 const MARKETPLACE_LABEL: Record<Ticket['order']['marketplace'], string> = {
   amazon: 'Amazon',
   flipkart: 'Flipkart',
@@ -52,27 +35,13 @@ const MARKETPLACE_LABEL: Record<Ticket['order']['marketplace'], string> = {
   direct: 'Direct',
 };
 
-// Marketplace-brand colors so the queue is scannable at a glance.
-const MARKETPLACE_CLASS: Record<Ticket['order']['marketplace'], string> = {
-  amazon:
-    'bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-500/30',
-  flipkart:
-    'bg-sky-500/15 text-sky-300 ring-1 ring-inset ring-sky-500/30',
-  meesho:
-    'bg-pink-500/15 text-pink-300 ring-1 ring-inset ring-pink-500/30',
-  myntra:
-    'bg-rose-500/15 text-rose-300 ring-1 ring-inset ring-rose-500/30',
-  direct:
-    'bg-brand-purple/20 text-brand-purple-light ring-1 ring-inset ring-brand-purple/40',
-};
-
-const AGE_CLASS: Record<'fresh' | 'aging' | 'stale', string> = {
-  fresh:
-    'bg-success/15 text-success ring-1 ring-inset ring-success/30',
-  aging:
-    'bg-brand-gold/15 text-brand-gold ring-1 ring-inset ring-brand-gold/30',
-  stale:
-    'bg-destructive/15 text-destructive ring-1 ring-inset ring-destructive/30',
+const CHANNEL_LABEL: Record<NonNullable<Ticket['channel']>, string> = {
+  phone: 'Phone',
+  email: 'Email',
+  chat: 'Chat',
+  'web-form': 'Web form',
+  marketplace: 'Marketplace',
+  other: 'Other',
 };
 
 function getInitials(name: string) {
@@ -98,6 +67,15 @@ function getSeverityRail(t: Ticket): string {
   }
   if (t.priority === 'high') return 'bg-brand-gold';
   return 'bg-transparent';
+}
+
+/** Subtle middot separator between meta segments. */
+function Dot() {
+  return (
+    <span aria-hidden="true" className="text-muted-foreground/40">
+      ·
+    </span>
+  );
 }
 
 export function TicketsList() {
@@ -156,7 +134,7 @@ export function TicketsList() {
   return (
     <div>
       <BulkActionBar />
-      <ul className="flex flex-col gap-2 p-3">
+      <ul className="flex flex-col gap-1.5 p-3">
         {filtered.map((t) => {
           const isSelected = selectedId === t.id;
           const isChecked = selectedIds.has(t.id);
@@ -164,9 +142,10 @@ export function TicketsList() {
           const sla = getSlaState(t);
           const age = getAgeBucket(t);
           const snoozed = isSnoozeActive(t);
+          const dupRisk =
+            t.dupCheck.status === 'bad' || t.dupCheck.status === 'failed';
           const hasRisk =
-            t.dupCheck.status === 'bad' ||
-            t.dupCheck.status === 'failed' ||
+            dupRisk ||
             t.riskStatus !== 'normal' ||
             Boolean(t.tag) ||
             (t.aiReport?.flags.length ?? 0) > 0;
@@ -175,20 +154,16 @@ export function TicketsList() {
             <li key={t.id}>
               <div
                 className={cn(
-                  'group relative flex w-full overflow-hidden rounded-lg border bg-card/65 transition-all',
-                  'hover:border-primary/45 hover:bg-card hover:shadow-sm',
+                  'group relative flex w-full overflow-hidden rounded-lg border border-border/70 bg-card/50 transition-colors',
+                  'hover:border-primary/40 hover:bg-card',
                   isSelected &&
-                    'border-primary/70 bg-primary/[0.08] shadow-sm shadow-primary/10 ring-1 ring-primary/40',
-                  isChecked && 'border-primary/50 bg-primary/[0.06]',
+                    'border-primary/60 bg-primary/[0.06] ring-1 ring-primary/30',
+                  isChecked && !isSelected && 'border-primary/40',
                 )}
               >
                 <span
                   aria-hidden="true"
-                  className={cn(
-                    'w-1 shrink-0 transition-colors',
-                    rail,
-                    rail === 'bg-transparent' && 'group-hover:bg-primary/30',
-                  )}
+                  className={cn('w-0.5 shrink-0', rail)}
                 />
 
                 <label
@@ -221,12 +196,12 @@ export function TicketsList() {
                   type="button"
                   onClick={() => select(t.id)}
                   aria-pressed={isSelected}
-                  className="flex min-w-0 flex-1 flex-col gap-2 p-3 text-left"
+                  className="flex min-w-0 flex-1 flex-col gap-1.5 p-3 text-left"
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span
                       className={cn(
-                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tracking-tight',
+                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tracking-tight',
                         hasRisk
                           ? 'bg-destructive/15 text-destructive'
                           : 'bg-primary/15 text-primary',
@@ -253,74 +228,55 @@ export function TicketsList() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 pl-[42px] text-[11px] text-muted-foreground">
+                    <span>{MARKETPLACE_LABEL[t.order.marketplace]}</span>
+                    {t.channel && (
+                      <>
+                        <Dot />
+                        <span>{CHANNEL_LABEL[t.channel]}</span>
+                      </>
+                    )}
+                    <Dot />
                     <span
-                      className={cn(
-                        'inline-flex items-center gap-1 font-medium',
-                        (t.dupCheck.status === 'bad' ||
-                          t.dupCheck.status === 'failed') &&
-                          'text-destructive',
-                        t.dupCheck.status === 'ok' && 'text-success',
-                      )}
+                      className={cn(age.bucket === 'stale' && 'text-destructive')}
                     >
-                      {t.dupCheck.status === 'ok' ? (
-                        <CheckCircle2 size={13} />
-                      ) : (
-                        <AlertTriangle size={13} />
-                      )}
-                      {DUP_LABEL[t.dupCheck.status]}
-                    </span>
-                    <span
-                      className={cn(
-                        'inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider tabular-nums',
-                        AGE_CLASS[age.bucket],
-                      )}
-                      title={`Opened ${age.label} ago`}
-                    >
-                      <Clock3 size={11} />
                       {age.label}
                     </span>
-                    {snoozed && (
-                      <span
-                        className="inline-flex shrink-0 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
-                        title="Snoozed — appears after active tickets"
-                      >
-                        <Bell size={11} />
-                        Snoozed
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+                    <Dot />
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5',
-                        MARKETPLACE_CLASS[t.order.marketplace],
-                      )}
-                    >
-                      <Headphones size={11} />
-                      {MARKETPLACE_LABEL[t.order.marketplace]}
-                    </span>
-                    <span className="inline-flex min-w-0 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5">
-                      <UserRound size={11} />
-                      <span className="max-w-[110px] truncate">
-                        {t.agent ?? 'Unassigned'}
-                      </span>
-                    </span>
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5',
                         sla.tone === 'danger' && 'text-destructive',
                         sla.tone === 'warning' && 'text-brand-gold',
                       )}
                     >
-                      <ShieldAlert size={11} />
                       {sla.label}
                     </span>
+                    {dupRisk && (
+                      <>
+                        <Dot />
+                        <span className="font-medium text-destructive">
+                          Dup risk
+                        </span>
+                      </>
+                    )}
+                    {snoozed && (
+                      <>
+                        <Dot />
+                        <span>Snoozed</span>
+                      </>
+                    )}
+                    {t.agent && (
+                      <>
+                        <Dot />
+                        <span className="max-w-[120px] truncate">
+                          {t.agent}
+                        </span>
+                      </>
+                    )}
                   </div>
 
                   {t.resolution && (
-                    <div className="flex">
+                    <div className="flex pl-[42px]">
                       <ResolutionChip ticket={t} />
                     </div>
                   )}

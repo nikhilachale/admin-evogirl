@@ -4,10 +4,14 @@ import type {
   CustomerContactStatus,
   DupCheckStatus,
   Marketplace,
+  OrderLookupStatus,
   RejectionReasonCategory,
   Ticket,
   TicketAction,
+  TicketChannel,
+  TicketIntake,
   TicketMessage,
+  TicketRequestType,
   TicketStatus,
   TicketIssueType,
   TicketRiskStatus,
@@ -15,6 +19,7 @@ import type {
 import { toast } from './toast';
 import { checkDuplicateClaim } from '@/lib/api/marketplaces';
 import { ensureClaimAcknowledgementMessages } from '@/lib/claim-auto-ack';
+import { nextTicketId, newCustomerId } from '@/lib/id-generators';
 
 export interface TicketsFilters {
   status: TicketStatus | 'all';
@@ -28,6 +33,31 @@ export interface TicketsFilters {
   dupCheck: DupCheckStatus | 'all';
   attachments: 'all' | 'has' | 'none' | 'unreviewed' | 'suspicious';
   evidence: keyof ClaimEvidenceChecklist | 'incomplete' | 'all';
+  channel: TicketChannel | 'all';
+}
+
+/** Payload for the manual "log a contact" intake flow. */
+export interface CreateTicketInput {
+  channel: TicketChannel;
+  loggedBy: string;
+  customer: { name: string; phone: string; email?: string };
+  order: {
+    id: string;
+    marketplace: Marketplace;
+    product: string;
+    sku?: string;
+    amount?: number;
+    purchasedAt?: number;
+    deliveredAt?: number;
+  };
+  requestType: TicketRequestType;
+  issueType: TicketIssueType;
+  priority?: Ticket['priority'];
+  issueDescription?: string;
+  rawContact?: string;
+  productUrl?: string;
+  lookupStatus: OrderLookupStatus;
+  matchedOrderId?: string;
 }
 
 interface TicketsState {
@@ -83,6 +113,8 @@ interface TicketsState {
   addMessage: (id: string, text: string) => void;
   addNote: (id: string, text: string) => void;
 
+  createTicket: (input: CreateTicketInput) => string;
+
   snoozeTicket: (id: string, until: number) => void;
   clearSnooze: (id: string) => void;
 
@@ -124,6 +156,22 @@ function formatRejection(category: RejectionReasonCategory, reason: string) {
   return `${REJECTION_REASON_LABEL[category]}: ${reason}`;
 }
 
+/** Single source of truth for the unfiltered queue state. */
+const DEFAULT_FILTERS: TicketsFilters = {
+  status: 'all',
+  issueType: 'all',
+  search: '',
+  priority: 'all',
+  marketplace: 'all',
+  assignee: 'all',
+  contactStatus: 'all',
+  riskStatus: 'all',
+  dupCheck: 'all',
+  attachments: 'all',
+  evidence: 'all',
+  channel: 'all',
+};
+
 const REJECTION_REASON_LABEL: Record<RejectionReasonCategory, string> = {
   'duplicate-claim': 'Duplicate claim',
   'invalid-order': 'Invalid order',
@@ -139,19 +187,7 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
   tickets: [],
   selectedId: null,
   selectedIds: new Set<string>(),
-  filters: {
-    status: 'all',
-    issueType: 'all',
-    search: '',
-    priority: 'all',
-    marketplace: 'all',
-    assignee: 'all',
-    contactStatus: 'all',
-    riskStatus: 'all',
-    dupCheck: 'all',
-    attachments: 'all',
-    evidence: 'all',
-  },
+  filters: { ...DEFAULT_FILTERS },
   activeView: null,
 
   select: (id) => set({ selectedId: id }),
@@ -734,6 +770,108 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
       title: 'Note added',
       description: `${id} — internal note saved.`,
     });
+  },
+
+  createTicket: (input) => {
+    const now = Date.now();
+    const id = nextTicketId(get().tickets);
+
+    const messages: TicketMessage[] = [];
+    const description = input.issueDescription?.trim();
+    if (description) {
+      messages.push({
+        id: crypto.randomUUID(),
+        from: 'customer',
+        text: description,
+        at: now,
+      });
+    }
+
+    const lookupNote =
+      input.lookupStatus === 'matched'
+        ? ` Order ${input.order.id} matched by contact lookup.`
+        : input.lookupStatus === 'unresolved'
+          ? ' No order confirmed at intake.'
+          : input.lookupStatus === 'manual'
+            ? ' Order details entered manually.'
+            : '';
+
+    const intake: TicketIntake = {
+      channel: input.channel,
+      loggedBy: input.loggedBy,
+      loggedAt: now,
+      rawContact: input.rawContact?.trim() || undefined,
+      productUrl: input.productUrl?.trim() || undefined,
+      lookupStatus: input.lookupStatus,
+      matchedOrderId: input.matchedOrderId,
+    };
+
+    const ticket: Ticket = {
+      id,
+      customer: {
+        id: newCustomerId(),
+        name: input.customer.name.trim(),
+        phone: input.customer.phone.trim(),
+        email: input.customer.email?.trim() || undefined,
+      },
+      order: {
+        id: input.order.id,
+        marketplace: input.order.marketplace,
+        product: input.order.product.trim(),
+        sku: input.order.sku?.trim() || '—',
+        amount: input.order.amount ?? 0,
+        purchasedAt: input.order.purchasedAt ?? now,
+        deliveredAt: input.order.deliveredAt,
+      },
+      status: 'pending',
+      requestType: input.requestType,
+      issueType: input.issueType,
+      riskStatus: 'normal',
+      contactStatus: 'reply-received',
+      evidence: {
+        orderVerified: false,
+        deliveryVerified: false,
+        photosReviewed: false,
+        duplicateCheckPassed: false,
+        aiReportReviewed: false,
+        customerHistoryReviewed: false,
+      },
+      priority: input.priority ?? 'normal',
+      createdAt: now,
+      dupCheck: { status: 'unknown', checked: 'not run', priorClaims: 0 },
+      messages,
+      notes: [
+        createSystemNote(
+          `Ticket created manually via ${input.channel} by ${input.loggedBy}.${lookupNote}`,
+          now,
+        ),
+      ],
+      channel: input.channel,
+      intake,
+    };
+
+    // Inject the standard auto-ack reply now (idempotent — stable id), so
+    // behaviour is identical before and after the snapshot re-hydrates.
+    const [withAck] = ensureClaimAcknowledgementMessages([ticket]);
+
+    // Land on the new ticket in an unfiltered queue. Without this, an active
+    // saved view or field filter (e.g. "Fraud flagged") would hide the fresh
+    // pending ticket and it would look like nothing was created.
+    set((s) => ({
+      tickets: [withAck, ...s.tickets],
+      selectedId: withAck.id,
+      filters: { ...DEFAULT_FILTERS },
+      activeView: null,
+    }));
+
+    toast({
+      icon: '🎫',
+      title: 'Ticket created',
+      description: `${id} logged via ${input.channel}.`,
+      tone: 'success',
+    });
+
+    return id;
   },
 
   updateAttachmentReview: (ticketId, attachmentId, patch) => {

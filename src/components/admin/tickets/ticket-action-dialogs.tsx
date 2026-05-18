@@ -512,7 +512,7 @@ function ConfirmActionDialog({
   );
 }
 
-function ActionDialog({
+export function ActionDialog({
   open,
   onOpenChange,
   title,
@@ -564,7 +564,7 @@ function ActionDialog({
   );
 }
 
-function DialogFooter({ children }: { children: ReactNode }) {
+export function DialogFooter({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
       {children}

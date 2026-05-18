@@ -2,9 +2,11 @@ import {
   CheckCircle2,
   ExternalLink,
   ImageOff,
+  ScanSearch,
   ShieldAlert,
   ZoomIn,
 } from 'lucide-react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +35,10 @@ export function IssueAttachmentsPanel({
   title = 'Issue attachments',
   description = 'Review customer-uploaded issue proof before approving.',
 }: IssueAttachmentsPanelProps) {
+  const [brokenIds, setBrokenIds] = useState<string[]>([]);
+  const markBroken = (id: string) =>
+    setBrokenIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+
   const pendingCount = attachments.filter(
     (attachment) => !attachment.reviewed,
   ).length;
@@ -83,16 +89,23 @@ export function IssueAttachmentsPanel({
                     aria-label={`Open issue attachment ${index + 1}`}
                     className="group relative block aspect-square bg-muted"
                   >
-                    {attachment.type === 'image' ? (
+                    {attachment.type === 'image' &&
+                    !brokenIds.includes(attachment.id) ? (
                       <img
                         src={attachment.url}
                         alt=""
                         loading="lazy"
+                        onError={() => markBroken(attachment.id)}
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
                         <ImageOff size={24} />
+                        <span className="text-[10px] font-medium">
+                          {attachment.type === 'image'
+                            ? 'Preview unavailable'
+                            : 'Video attachment'}
+                        </span>
                       </div>
                     )}
                     <span className="pointer-events-none absolute inset-0 bg-foreground/0 transition-colors group-hover:bg-foreground/30" />
@@ -131,62 +144,69 @@ export function IssueAttachmentsPanel({
                     )}
 
                     {onUpdate && (
-                      <div className="grid grid-cols-3 gap-1.5">
+                      <div className="space-y-1.5">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 gap-1.5 px-2 text-[11px]"
+                          className="h-8 w-full justify-center gap-1.5 px-2 text-[11px]"
                           onClick={() =>
                             onUpdate(attachment.id, {
                               reviewed: !attachment.reviewed,
                             })
                           }
                         >
-                          <CheckCircle2 size={13} />
-                          {attachment.reviewed ? 'Unreview' : 'Reviewed'}
+                          <CheckCircle2 size={13} className="shrink-0" />
+                          <span className="truncate">
+                            {attachment.reviewed
+                              ? 'Unreview'
+                              : 'Mark reviewed'}
+                          </span>
                         </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className={cn(
-                            'h-8 gap-1.5 px-2 text-[11px]',
-                            attachment.suspicious &&
-                              'border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15',
-                          )}
-                          onClick={() =>
-                            onUpdate(attachment.id, {
-                              suspicious: !attachment.suspicious,
-                              reason: attachment.suspicious
-                                ? undefined
-                                : 'Marked suspicious by agent.',
-                            })
-                          }
-                        >
-                          <ShieldAlert size={13} />
-                          Flag
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className={cn(
-                            'h-8 gap-1.5 px-2 text-[11px]',
-                            attachment.imageMismatch &&
-                              'border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15',
-                          )}
-                          onClick={() =>
-                            onUpdate(attachment.id, {
-                              imageMismatch: !attachment.imageMismatch,
-                              reason: attachment.imageMismatch
-                                ? undefined
-                                : 'Marked as image mismatch by agent.',
-                            })
-                          }
-                        >
-                          Mismatch
-                        </Button>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                              'h-8 justify-center gap-1.5 px-2 text-[11px]',
+                              attachment.suspicious &&
+                                'border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15',
+                            )}
+                            onClick={() =>
+                              onUpdate(attachment.id, {
+                                suspicious: !attachment.suspicious,
+                                reason: attachment.suspicious
+                                  ? undefined
+                                  : 'Marked suspicious by agent.',
+                              })
+                            }
+                          >
+                            <ShieldAlert size={13} className="shrink-0" />
+                            <span className="truncate">Flag</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                              'h-8 justify-center gap-1.5 px-2 text-[11px]',
+                              attachment.imageMismatch &&
+                                'border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15',
+                            )}
+                            onClick={() =>
+                              onUpdate(attachment.id, {
+                                imageMismatch: !attachment.imageMismatch,
+                                reason: attachment.imageMismatch
+                                  ? undefined
+                                  : 'Marked as image mismatch by agent.',
+                              })
+                            }
+                          >
+                            <ScanSearch size={13} className="shrink-0" />
+                            <span className="truncate">Mismatch</span>
+                          </Button>
+                        </div>
                       </div>
                     )}
 
