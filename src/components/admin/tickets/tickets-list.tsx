@@ -23,8 +23,16 @@ const STATUS_VARIANT: Record<
   pending: 'pending',
   resolved: 'resolved',
   rejected: 'rejected',
-  'replacement-issued': 'secondary',
+  'replacement-issued': 'resolved',
   escalated: 'secondary',
+};
+
+const STATUS_LABEL: Record<Ticket['status'], string> = {
+  pending: 'Pending',
+  resolved: 'Resolved',
+  rejected: 'Rejected',
+  'replacement-issued': 'Approved',
+  escalated: 'Escalated',
 };
 
 const MARKETPLACE_LABEL: Record<Ticket['order']['marketplace'], string> = {
@@ -144,11 +152,6 @@ export function TicketsList() {
           const snoozed = isSnoozeActive(t);
           const dupRisk =
             t.dupCheck.status === 'bad' || t.dupCheck.status === 'failed';
-          const hasRisk =
-            dupRisk ||
-            t.riskStatus !== 'normal' ||
-            Boolean(t.tag) ||
-            (t.aiReport?.flags.length ?? 0) > 0;
 
           return (
             <li key={t.id}>
@@ -200,12 +203,7 @@ export function TicketsList() {
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span
-                      className={cn(
-                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tracking-tight',
-                        hasRisk
-                          ? 'bg-destructive/15 text-destructive'
-                          : 'bg-primary/15 text-primary',
-                      )}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-bold tracking-tight text-primary"
                       aria-hidden="true"
                     >
                       {getInitials(t.customer.name)}
@@ -219,7 +217,7 @@ export function TicketsList() {
                           variant={STATUS_VARIANT[t.status]}
                           className="shrink-0"
                         >
-                          {t.status}
+                          {STATUS_LABEL[t.status]}
                         </Badge>
                       </div>
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">

@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   Flag,
   Gift,
-  PackageCheck,
   RotateCcw,
   Send,
   UserRoundPlus,
@@ -46,7 +45,7 @@ export function TicketOpenActions({
   const [voucherOpen, setVoucherOpen] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
   const [reassignOpen, setReassignOpen] = useState(false);
-  const issueReplacement = useTicketsStore((s) => s.issueReplacement);
+  const approve = useTicketsStore((s) => s.approve);
   const issueRefund = useTicketsStore((s) => s.issueRefund);
   const issueVoucher = useTicketsStore((s) => s.issueVoucher);
   const resolve = useTicketsStore((s) => s.resolve);
@@ -61,26 +60,29 @@ export function TicketOpenActions({
           <ConfirmActionDialog
             open={approveOpen}
             onOpenChange={setApproveOpen}
-            title="Issue replacement"
-            description={`Close ${ticket.id} with a replacement resolution.`}
-            icon={<PackageCheck size={18} />}
+            title="Approve claim"
+            description={`Approve ${ticket.id} — a replacement is queued and the ticket is marked Approved.`}
+            icon={<CheckCircle2 size={18} />}
             trigger={
               <Button className="gap-2">
-                <PackageCheck size={16} />
-                Issue replacement
+                <CheckCircle2 size={16} />
+                Approve
+                <Kbd className="ml-1 border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground/80">
+                  a
+                </Kbd>
               </Button>
             }
-            confirmLabel="Issue replacement"
-            onConfirm={() => issueReplacement(ticket.id)}
+            confirmLabel="Approve claim"
+            onConfirm={() => approve(ticket.id)}
           >
             {approvalWarnings.length > 0 ? (
               <WarningList
-                title="Review warnings before issuing replacement"
+                title="Review warnings before approving"
                 items={approvalWarnings}
               />
             ) : (
               <p className="rounded-md border border-success/30 bg-success/5 p-3 text-sm text-muted-foreground">
-                Evidence looks clean for a replacement resolution.
+                Evidence looks clean — safe to approve.
               </p>
             )}
           </ConfirmActionDialog>

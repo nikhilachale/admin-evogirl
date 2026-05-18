@@ -44,8 +44,19 @@ const STATUS_LABEL: Record<Ticket['status'], string> = {
   pending: 'Pending review',
   resolved: 'Resolved',
   rejected: 'Rejected',
-  'replacement-issued': 'Replacement issued',
+  'replacement-issued': 'Approved',
   escalated: 'Escalated',
+};
+
+const STATUS_VARIANT: Record<
+  Ticket['status'],
+  'pending' | 'resolved' | 'rejected' | 'secondary'
+> = {
+  pending: 'pending',
+  resolved: 'resolved',
+  rejected: 'rejected',
+  'replacement-issued': 'resolved',
+  escalated: 'secondary',
 };
 
 function getInitials(name: string) {
@@ -171,7 +182,7 @@ export function TicketDetail() {
                 <span className="font-mono text-xs text-muted-foreground">
                   {ticket.id}
                 </span>
-                <Badge variant={resolved ? 'secondary' : 'pending'}>
+                <Badge variant={STATUS_VARIANT[ticket.status]}>
                   {STATUS_LABEL[ticket.status]}
                 </Badge>
                 {!resolved && isSnoozeActive(ticket) && (

@@ -8,6 +8,89 @@ const hairImg = (lock: number, tags = 'wig,hairstyle') =>
   `https://loremflickr.com/480/480/${tags}?lock=${lock}`;
 
 export const MOCK_TICKETS: Ticket[] = [
+  // ── DEMO ticket — clean pending replacement, full happy-path flow ─
+  //    Mitali Sharma. Fresh timestamp keeps it at the top of the
+  //    queue; dupCheck passes so it can be approved → replacement
+  //    issued → resolved without hitting any fraud/risk gating.
+  {
+    id: 'TKT-2411',
+    customer: {
+      id: 'CUS-2025',
+      name: 'Mitali Sharma',
+      phone: '+91 98XXX-XX025',
+      email: 'mitali.sharma@example.com',
+    },
+    order: {
+      id: 'AMZ-IN-905512',
+      marketplace: 'amazon',
+      product: 'evogirl Lace Front Wig — 20" Straight',
+      sku: 'WIG-LF-20-ST',
+      amount: 7999,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 4,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 1,
+    },
+    status: 'pending',
+    requestType: 'replacement',
+    issueType: 'damage',
+    riskStatus: 'normal',
+    contactStatus: 'reply-received',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: false,
+      duplicateCheckPassed: true,
+      aiReportReviewed: false,
+      customerHistoryReviewed: false,
+    },
+    aiReport: {
+      flags: [],
+      summary:
+        'Photos show a clean lace tear along the hairline, consistent with transit damage. No prior claims on this account. Safe to approve a replacement.',
+      confidence: 0.93,
+      generatedAt: Date.now() - 1000 * 60 * 25,
+    },
+    issueAttachments: [
+      {
+        id: 'att-2411-a',
+        type: 'image',
+        url: hairImg(2417, 'lacewig,hair'),
+        reviewed: false,
+      },
+      {
+        id: 'att-2411-b',
+        type: 'image',
+        url: hairImg(2418, 'wig,closeup'),
+        reviewed: false,
+      },
+    ],
+    priority: 'high',
+    createdAt: Date.now() - 1000 * 60 * 30,
+    dupCheck: {
+      status: 'ok',
+      checked: 'just now',
+      priorClaims: 0,
+      matchingOrderIds: [],
+      matchSignals: { phone: 0, email: 0, sku: 0 },
+      confidence: 0.97,
+      severity: 'low',
+    },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'Hi, the lace tore along the hairline right out of the box. Photos attached — I’d like a replacement please.',
+        at: Date.now() - 1000 * 60 * 30,
+      },
+      {
+        id: 'm2',
+        from: 'system',
+        text: 'Marketplace check passed — order verified, no prior claims.',
+        at: Date.now() - 1000 * 60 * 28,
+      },
+    ],
+    notes: [],
+  },
+
   // ── Clean, legit replacement claim — happy path ───────────────
   {
     id: 'TKT-2401',
@@ -1219,6 +1302,191 @@ export const MOCK_TICKETS: Ticket[] = [
         from: 'customer',
         text: 'Halo wire snapped within a week.',
         at: Date.now() - 1000 * 60 * 60 * 24 * 53,
+      },
+    ],
+    notes: [],
+  },
+
+  // ── Linked history: Mitali Sharma (CUS-2025) — clean returning
+  //    shopper. Three prior claims across Flipkart / Myntra / Direct,
+  //    all resolved in her favour, no risk flags. Matched to her
+  //    current Amazon ticket (TKT-2411) by id / phone / email, so the
+  //    Account risk → Order & claim history section shows 4 orders
+  //    across 4 retailers while the account still reads "Clear". ──
+  {
+    id: 'TKT-2370',
+    customer: {
+      id: 'CUS-2025',
+      name: 'Mitali Sharma',
+      phone: '+91 98XXX-XX025',
+      email: 'mitali.sharma@example.com',
+    },
+    order: {
+      id: 'FK-IN-770341',
+      marketplace: 'flipkart',
+      product: 'evogirl Clip-In Extensions — 20" Natural Brown',
+      sku: 'EXT-CI-20-NB',
+      amount: 4499,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 42,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 39,
+    },
+    status: 'replacement-issued',
+    requestType: 'replacement',
+    issueType: 'defect',
+    riskStatus: 'normal',
+    contactStatus: 'customer-notified',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: true,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    priority: 'normal',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 38,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 36,
+    resolution: 'replacement',
+    issueAttachments: [
+      {
+        id: 'att-2370-a',
+        type: 'image',
+        url: hairImg(2419, 'clipinhair,hairextensions'),
+        reviewed: true,
+      },
+      {
+        id: 'att-2370-b',
+        type: 'image',
+        url: hairImg(2420, 'hairextensions,brownhair'),
+        reviewed: true,
+      },
+    ],
+    dupCheck: { status: 'ok', checked: 'earlier', priorClaims: 0 },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'One weft came loose at the clip. Could I get a replacement?',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 38,
+      },
+    ],
+    notes: [],
+  },
+  {
+    id: 'TKT-2352',
+    customer: {
+      id: 'CUS-2025',
+      name: 'Mitali Sharma',
+      phone: '+91 98XXX-XX025',
+      email: 'mitali.sharma@example.com',
+    },
+    order: {
+      id: 'MYN-IN-538820',
+      marketplace: 'myntra',
+      product: 'evogirl Hair Care Bundle',
+      sku: 'CARE-BNDL-01',
+      amount: 1899,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 78,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 74,
+    },
+    status: 'resolved',
+    requestType: 'return',
+    issueType: 'wrong-item',
+    riskStatus: 'normal',
+    contactStatus: 'customer-notified',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: true,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    priority: 'low',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 73,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 71,
+    resolution: 'refund',
+    resolutionAmount: 1899,
+    issueAttachments: [
+      {
+        id: 'att-2352-a',
+        type: 'image',
+        url: hairImg(2421, 'haircare,hairserum'),
+        reviewed: true,
+      },
+      {
+        id: 'att-2352-b',
+        type: 'image',
+        url: hairImg(2422, 'haircareproducts,shampoo'),
+        reviewed: true,
+      },
+    ],
+    dupCheck: { status: 'ok', checked: 'earlier', priorClaims: 0 },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'Received the conditioner-only pack instead of the full bundle. Returning it.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 73,
+      },
+    ],
+    notes: [],
+  },
+  {
+    id: 'TKT-2333',
+    customer: {
+      id: 'CUS-2025',
+      name: 'Mitali Sharma',
+      phone: '+91 98XXX-XX025',
+      email: 'mitali.sharma@example.com',
+    },
+    order: {
+      id: 'DIR-IN-100802',
+      marketplace: 'direct',
+      product: 'evogirl Satin Headband + Clip Set',
+      sku: 'ACC-HB-SET-03',
+      amount: 999,
+      purchasedAt: Date.now() - 1000 * 60 * 60 * 24 * 112,
+      deliveredAt: Date.now() - 1000 * 60 * 60 * 24 * 108,
+    },
+    status: 'resolved',
+    requestType: 'replacement',
+    issueType: 'damage',
+    riskStatus: 'normal',
+    contactStatus: 'customer-notified',
+    evidence: {
+      orderVerified: true,
+      deliveryVerified: true,
+      photosReviewed: true,
+      duplicateCheckPassed: true,
+      aiReportReviewed: true,
+      customerHistoryReviewed: true,
+    },
+    priority: 'low',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 107,
+    resolvedAt: Date.now() - 1000 * 60 * 60 * 24 * 105,
+    resolution: 'replacement',
+    issueAttachments: [
+      {
+        id: 'att-2333-a',
+        type: 'image',
+        url: hairImg(2423, 'satinheadband,hairaccessory'),
+        reviewed: true,
+      },
+      {
+        id: 'att-2333-b',
+        type: 'image',
+        url: hairImg(2424, 'hairclip,hairaccessory'),
+        reviewed: true,
+      },
+    ],
+    dupCheck: { status: 'ok', checked: 'earlier', priorClaims: 0 },
+    messages: [
+      {
+        id: 'm1',
+        from: 'customer',
+        text: 'The headband arrived with a torn seam. Replacement please.',
+        at: Date.now() - 1000 * 60 * 60 * 24 * 107,
       },
     ],
     notes: [],

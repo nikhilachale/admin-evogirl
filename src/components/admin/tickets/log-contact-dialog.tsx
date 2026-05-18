@@ -24,8 +24,6 @@ const CHANNELS: { value: TicketChannel; label: string }[] = [
   { value: 'phone', label: 'Phone call' },
   { value: 'email', label: 'Email' },
   { value: 'chat', label: 'Chat / WhatsApp' },
-  { value: 'web-form', label: 'Web form' },
-  { value: 'marketplace', label: 'Marketplace message' },
   { value: 'other', label: 'Other' },
 ];
 
@@ -304,7 +302,7 @@ export function LogContactDialog({
       trigger={
         <Button className="gap-2">
           <Headset size={16} />
-          Log contact
+          Create ticket
         </Button>
       }
     >

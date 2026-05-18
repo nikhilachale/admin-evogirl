@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Kbd } from './kbd';
 import { SavedViewsRow } from './saved-views';
-import { ShortcutCheatsheet } from './shortcut-cheatsheet';
 import { LogContactDialog } from './log-contact-dialog';
 import type {
   CustomerContactStatus,
@@ -159,15 +158,7 @@ export function TicketsFilters() {
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
             Ticket queue
           </p>
-          <div className="flex items-center gap-2">
-            <span className="hidden items-center gap-1 text-[10px] font-medium text-muted-foreground/80 md:inline-flex">
-              <Kbd>j</Kbd>
-              <Kbd>k</Kbd>
-              <span className="ml-0.5">to navigate</span>
-            </span>
-            <LogContactDialog open={logOpen} onOpenChange={setLogOpen} />
-            <ShortcutCheatsheet />
-          </div>
+          <LogContactDialog open={logOpen} onOpenChange={setLogOpen} />
         </div>
         <div className="mt-3 grid grid-cols-3 divide-x divide-border rounded-lg border bg-background/40">
           <QueueMetric label="Pending" value={pendingCount} tone="primary" />
